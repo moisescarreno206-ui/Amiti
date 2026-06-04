@@ -1,28 +1,27 @@
-# ... (mantén tus importaciones y la función init_db)
-
-@app.route('/', methods=['POST'])
-def manejar_alerta():
-    token = request.headers.get("X-AMITI-KEY")
-    if token != LLAVE_SEGURIDAD:
-        return jsonify({"status": "ACCESO DENEGADO"}), 403
-
-    datos = request.json
-    conn = sqlite3.connect('amiti_data.db')
-    cursor = conn.cursor()
+def enviar_alerta_nube(protocolo="EMERGENCIA_ALTA", lat="8.9341", lon="-67.4283"):
+    payload = {
+        "evento": "DISPARO_PROTOCOLO",
+        "protocolo": protocolo,
+        "latitud": str(lat),
+        "longitud": str(lon),
+        "timestamp": time.time()
+    }
     
-    # Insertar y guardar
-    cursor.execute("INSERT INTO alertas (fecha, protocolo, lat, lon) VALUES (?, ?, ?, ?)",
-                   (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datos['protocolo'], datos['latitud'], datos['longitud']))
+    headers = {"X-AMITI-KEY": "AMITI_CORE_2026_SUPER_SECRET"}
     
-    # Contar registros totales
-    cursor.execute("SELECT COUNT(*) FROM alertas")
-    total_alertas = cursor.fetchone()[0]
-    
-    conn.commit()
-    conn.close()
-
-    return jsonify({
-        "status": "Registro Exitoso", 
-        "total_eventos": total_alertas, 
-        "evaluacion": "Nivel NORMAL"
-    })
+    print(f"\n{C_AZUL}📡 Conectando...{C_RESET}")
+    try:
+        respuesta = requests.post(URL_SERVIDOR, json=payload, headers=headers, timeout=25)
+        
+        # ESTA PARTE DEBE ESTAR DENTRO DE LA FUNCIÓN
+        if respuesta.status_code == 200:
+            datos = respuesta.json()
+            print(f"{C_VERDE}✅ [TRANSMISIÓN SEGURA]{C_RESET}")
+            # Aquí AMITI nos cuenta cuántos eventos hay en su memoria
+            print(f"📊 Total en base de datos: {datos.get('total_eventos', 'N/A')}")
+            print(f"🛰️ Eval: {datos.get('evaluacion')}")
+        else:
+            print(f"Error: {respuesta.status_code}")
+            
+    except Exception as e:
+        print(f"Error: {e}")
