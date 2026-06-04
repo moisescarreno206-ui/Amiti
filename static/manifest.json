@@ -1,0 +1,8 @@
+# Asegúrate de que tus rutas apunten a la carpeta 'static'
+@app.route('/manifest.json')
+def manifest(): 
+    return send_from_directory('static', 'manifest.json')
+
+@app.route('/icon.png')
+def icon(): 
+    return send_from_directory('static', 'icon.png')
