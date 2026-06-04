@@ -1,95 +1,41 @@
-import os
-import time
+import sqlite3
 from flask import Flask, request, jsonify
+from datetime import datetime
+import os
 
 app = Flask(__name__)
+LLAVE_SEGURIDAD = "AMITI_CORE_2026_SUPER_SECRET"
 
-@app.route('/', methods=['GET'])
-def ver_historial():
-    try:
-        if os.path.exists("contingencia.log"):
-            with open("contingencia.log", "r", encoding="utf-8") as f:
-                lineas = f.readlines()
-        else:
-            lineas = []
+# Configurar Base de Datos
+def init_db():
+    conn = sqlite3.connect('amiti_data.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS alertas 
+                      (id INTEGER PRIMARY KEY, fecha TEXT, protocolo TEXT, lat TEXT, lon TEXT)''')
+    conn.commit()
+    conn.close()
 
-        html = """
-        <html>
-        <head>
-            <title>Panel AMITI OS</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body { background-color: #0d1117; color: #c9d1d9; font-family: 'Courier New', monospace; padding: 20px; }
-                h2 { color: #58a6ff; border-bottom: 2px solid #21262d; padding-bottom: 10px; }
-                .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
-                .danger { color: #f85149; font-weight: bold; }
-                .geo { color: #56d364; }
-                .footer { font-size: 0.8em; color: #8b949e; margin-top: 30px; text-align: center; }
-            </style>
-        </head>
-        <body>
-            <h2>🛰️ AMITI IA - HISTORIAL DE ALERTAS NUBE</h2>
-        """
-
-        if not lineas:
-            html += "<p style='color:#8b949e;'>[SISTEMA LIMPIO] No hay alertas registradas en la base de datos.</p>"
-        else:
-            for linea in reversed(lineas):
-                if "||" in linea:
-                    partes = linea.strip().split("||")
-                    tiempo_str = partes[0]
-                    protocolo = partes[1]
-                    lat = partes[2]
-                    lon = partes[3]
-                    
-                    html += f"""
-                    <div class="card">
-                        <span class="danger">⚠️ [{tiempo_str}] - TRANSMISIÓN DISPARADA</span><br>
-                        <span>🛡️ <b>Protocolo:</b> {protocolo}</span><br>
-                        <span class="geo">📍 <b>Ubicación:</b> Lat {lat}, Lon {lon}</span>
-                    </div>
-                    """
-                else:
-                    html += f'<div class="card"><span class="danger">{linea.strip()}</span></div>'
-
-        html += """
-            <div class="footer">Amiti IA Network Security © 2026</div>
-        </body>
-        </html>
-        """
-        return html
-    except Exception as e:
-        return f"Error en la base de datos central: {str(e)}"
-
+init_db()
 
 @app.route('/', methods=['POST'])
-def recibir_contingencia():
-    try:
-        datos = request.get_json()
-        if not datos:
-            return jsonify({"status": "ERROR", "error": "No se recibieron datos JSON"}), 400
-            
-        evento = datos.get("evento", "DESCONOCIDO")
-        protocolo = datos.get("protocolo", "DESCONOCIDO")
-        lat = datos.get("latitud", "0.0")
-        lon = datos.get("longitud", "0.0")
-        timestamp = datos.get("timestamp", time.time())
-        
-        tiempo_legible = time.ctime(timestamp)
-        
-        with open("contingencia.log", "a", encoding="utf-8") as f:
-            f.write(f"{tiempo_legible}||{protocolo}||{lat}||{lon}\n")
-            
-        print(f"[NUBE ALERTA] Recibido: {evento}")
-        
-        return jsonify({
-            "status": "PROCESADO_Y_GUARDADO",
-            "servidor": "NUBE_AMITI_ALPHA"
-        }), 200
-    except Exception as e:
-        return jsonify({"status": "ERROR_INTERNO", "error": str(e)}), 500
+def manejar_alerta():
+    # 1. Validación de Seguridad (Blindaje)
+    token = request.headers.get("X-AMITI-KEY")
+    if token != LLAVE_SEGURIDAD:
+        return jsonify({"status": "ACCESO DENEGADO"}), 403
 
+    # 2. Registro en Base de Datos
+    datos = request.json
+    conn = sqlite3.connect('amiti_data.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO alertas (fecha, protocolo, lat, lon) VALUES (?, ?, ?, ?)",
+                   (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datos['protocolo'], datos['latitud'], datos['longitud']))
+    conn.commit()
+    conn.close()
 
-if __name__ == '__main__':
+    # 3. Auto-evaluación
+    nivel = "ALTA" if datos['protocolo'] == "EMERGENCIA_ALTA" else "NORMAL"
+    return jsonify({"status": "Registro Exitoso", "evaluacion": f"Nivel {nivel}", "servidor": "AMITI_CORE_BLINDADO"})
+
+if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
