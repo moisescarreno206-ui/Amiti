@@ -1,38 +1,28 @@
-import time
-import requests
-import sys
+# ... (mantén tus importaciones y la función init_db)
 
-# La URL de tu servidor en Render
-URL_SERVIDOR = "https://amiti.onrender.com"  
+@app.route('/', methods=['POST'])
+def manejar_alerta():
+    token = request.headers.get("X-AMITI-KEY")
+    if token != LLAVE_SEGURIDAD:
+        return jsonify({"status": "ACCESO DENEGADO"}), 403
 
-# Colores (sin espacios extra al principio)
-C_BLANCO = "\033[1;37m"
-C_AZUL = "\033[1;34m"
-C_VERDE = "\033[1;32m"
-C_RESET = "\033[0m"
-
-def enviar_alerta_nube(protocolo="EMERGENCIA_ALTA", lat="8.9341", lon="-67.4283"):
-    payload = {
-        "evento": "DISPARO_PROTOCOLO",
-        "protocolo": protocolo,
-        "latitud": str(lat),
-        "longitud": str(lon),
-        "timestamp": time.time()
-    }
+    datos = request.json
+    conn = sqlite3.connect('amiti_data.db')
+    cursor = conn.cursor()
     
-    # Esta línea DEBE estar pegada al margen izquierdo dentro de la función
-    headers = {"X-AMITI-KEY": "AMITI_CORE_2026_SUPER_SECRET"}
+    # Insertar y guardar
+    cursor.execute("INSERT INTO alertas (fecha, protocolo, lat, lon) VALUES (?, ?, ?, ?)",
+                   (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datos['protocolo'], datos['latitud'], datos['longitud']))
     
-    print(f"\n{C_AZUL}📡 Conectando...{C_RESET}")
-    try:
-        respuesta = requests.post(URL_SERVIDOR, json=payload, headers=headers, timeout=25)
-        if respuesta.status_code == 200:
-            print(f"{C_VERDE}✅ [TRANSMISIÓN SEGURA]{C_RESET}")
-        else:
-            print(f"Error: {respuesta.status_code}")
-    except Exception as e:
-        print(f"Error: {e}")
+    # Contar registros totales
+    cursor.execute("SELECT COUNT(*) FROM alertas")
+    total_alertas = cursor.fetchone()[0]
+    
+    conn.commit()
+    conn.close()
 
-# Ejecución simple para probar
-if __name__ == "__main__":
-    enviar_alerta_nube()
+    return jsonify({
+        "status": "Registro Exitoso", 
+        "total_eventos": total_alertas, 
+        "evaluacion": "Nivel NORMAL"
+    })
