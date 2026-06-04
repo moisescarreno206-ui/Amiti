@@ -1,41 +1,38 @@
-import sqlite3
-from flask import Flask, request, jsonify
-from datetime import datetime
-import os
+import time
+import requests
+import sys
 
-app = Flask(__name__)
-LLAVE_SEGURIDAD = "AMITI_CORE_2026_SUPER_SECRET"
+# La URL de tu servidor en Render
+URL_SERVIDOR = "https://amiti.onrender.com"  
 
-# Configurar Base de Datos
-def init_db():
-    conn = sqlite3.connect('amiti_data.db')
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS alertas 
-                      (id INTEGER PRIMARY KEY, fecha TEXT, protocolo TEXT, lat TEXT, lon TEXT)''')
-    conn.commit()
-    conn.close()
+# Colores (sin espacios extra al principio)
+C_BLANCO = "\033[1;37m"
+C_AZUL = "\033[1;34m"
+C_VERDE = "\033[1;32m"
+C_RESET = "\033[0m"
 
-init_db()
+def enviar_alerta_nube(protocolo="EMERGENCIA_ALTA", lat="8.9341", lon="-67.4283"):
+    payload = {
+        "evento": "DISPARO_PROTOCOLO",
+        "protocolo": protocolo,
+        "latitud": str(lat),
+        "longitud": str(lon),
+        "timestamp": time.time()
+    }
+    
+    # Esta línea DEBE estar pegada al margen izquierdo dentro de la función
+    headers = {"X-AMITI-KEY": "AMITI_CORE_2026_SUPER_SECRET"}
+    
+    print(f"\n{C_AZUL}📡 Conectando...{C_RESET}")
+    try:
+        respuesta = requests.post(URL_SERVIDOR, json=payload, headers=headers, timeout=25)
+        if respuesta.status_code == 200:
+            print(f"{C_VERDE}✅ [TRANSMISIÓN SEGURA]{C_RESET}")
+        else:
+            print(f"Error: {respuesta.status_code}")
+    except Exception as e:
+        print(f"Error: {e}")
 
-@app.route('/', methods=['POST'])
-def manejar_alerta():
-    # 1. Validación de Seguridad (Blindaje)
-    token = request.headers.get("X-AMITI-KEY")
-    if token != LLAVE_SEGURIDAD:
-        return jsonify({"status": "ACCESO DENEGADO"}), 403
-
-    # 2. Registro en Base de Datos
-    datos = request.json
-    conn = sqlite3.connect('amiti_data.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO alertas (fecha, protocolo, lat, lon) VALUES (?, ?, ?, ?)",
-                   (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datos['protocolo'], datos['latitud'], datos['longitud']))
-    conn.commit()
-    conn.close()
-
-    # 3. Auto-evaluación
-    nivel = "ALTA" if datos['protocolo'] == "EMERGENCIA_ALTA" else "NORMAL"
-    return jsonify({"status": "Registro Exitoso", "evaluacion": f"Nivel {nivel}", "servidor": "AMITI_CORE_BLINDADO"})
-
+# Ejecución simple para probar
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    enviar_alerta_nube()
