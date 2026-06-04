@@ -24,24 +24,33 @@ def manejar_alerta():
     conn = sqlite3.connect('amiti_data.db')
     cursor = conn.cursor()
     
-    # Insertar con timestamp real
+    # Insertar alerta con fecha actual
     cursor.execute("INSERT INTO alertas (fecha, protocolo, lat, lon) VALUES (?, ?, ?, ?)",
                    (datetime.now(), datos['protocolo'], datos['latitud'], datos['longitud']))
     
-    # ANALISTA: Buscar si hay 3 alertas en el último minuto
+    # Análisis: ¿3 o más alertas en el último minuto?
     hace_un_minuto = datetime.now() - timedelta(minutes=1)
     cursor.execute("SELECT COUNT(*) FROM alertas WHERE fecha > ?", (hace_un_minuto,))
     conteo_reciente = cursor.fetchone()[0]
     
     estado = "AMITI INFINITO NEUTRO - Estable"
+    notificacion_jefe = False
+    
     if conteo_reciente >= 3:
         estado = "AMITI INFINITO NEUTRO - ALERTA ROJA: PATRÓN ACELERADO"
+        notificacion_jefe = True
         
     cursor.execute("SELECT COUNT(*) FROM alertas")
     total = cursor.fetchone()[0]
     
     conn.commit()
     conn.close()
-    return jsonify({"status": "Registro Exitoso", "total": total, "estado": estado})
+    
+    return jsonify({
+        "status": "Registro Exitoso", 
+        "total": total, 
+        "estado": estado,
+        "alerta_jefe": notificacion_jefe
+    })
 
-# ... (mantén tu función auto_upgrade igual que antes)
+# ... (mantén tu función auto_upgrade igual)
