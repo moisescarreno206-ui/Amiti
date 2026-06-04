@@ -16,7 +16,7 @@ def ver_historial():
         html = """
         <html>
         <head>
-            <title>Panel Centinela OS</title>
+            <title>Panel AMITI OS</title>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
@@ -29,7 +29,7 @@ def ver_historial():
             </style>
         </head>
         <body>
-            <h2>🛰️ HISTORIAL DE ALERTAS - NUBE CENTRAL</h2>
+            <h2>🛰️ AMITI IA - HISTORIAL DE ALERTAS NUBE</h2>
         """
 
         if not lineas:
@@ -54,7 +54,7 @@ def ver_historial():
                     html += f'<div class="card"><span class="danger">{linea.strip()}</span></div>'
 
         html += """
-            <div class="footer">Centinela IA Network Security © 2026</div>
+            <div class="footer">Amiti IA Network Security © 2026</div>
         </body>
         </html>
         """
@@ -75,15 +75,14 @@ def recibir_contingencia():
         
         tiempo_legible = time.ctime(timestamp)
         
-        # Guardamos en la base de datos usando un separador estructural
         with open("contingencia.log", "a", encoding="utf-8") as f:
             f.write(f"{tiempo_legible}||{protocolo}||{lat}||{lon}\n")
             
-        print(f"[NUBE ALERTA] Recibido: {evento} - Protocolo: {protocolo} - Ubicación: {lat}, {lon}")
+        print(f"[NUBE ALERTA] Recibido: {evento}")
         
         return jsonify({
             "status": "PROCESADO_Y_GUARDADO",
-            "servidor": "NUBE_CENTINELA_ALPHA"
+            "servidor": "NUBE_AMITI_ALPHA"
         }), 200
     except Exception as e:
         return jsonify({"status": "ERROR_INTERNO", "error": str(e)}), 500
