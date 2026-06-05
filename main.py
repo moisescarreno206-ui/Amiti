@@ -3,37 +3,27 @@ import datetime, os, re
 
 app = Flask(__name__)
 
+# Memoria maestra con contador de clientes
 ESTADO = {
     "integridad": 100,
     "modo": "NEUTRO",
-    "logs": [{"t": "00:00", "m": "NÚCLEO ANALÍTICO ACTIVADO", "c": "green"}]
+    "clientes_en_linea": 0,
+    "logs": [{"t": "00:00", "m": "NÚCLEO ONLINE - MONITOR ACTIVO", "c": "green"}]
 }
 
 def analizar_comando(comando):
     c = comando.lower()
-    
-    # 1. Seguridad
-    if any(a in c for a in ["hack", "virus"]):
-        return "ALERTA: Amenaza detectada. Bloqueo de seguridad activado."
-    
-    # 2. IA Analítica (Resolver operaciones básicas y preguntas)
     if re.search(r'\d+\s*[\+\-\*\/]\s*\d+', c):
-        try:
-            resultado = eval(re.search(r'\d+\s*[\+\-\*\/]\s*\d+', c).group())
-            return f"Cálculo completado: El resultado es {resultado}."
-        except:
-            return "Error en la unidad de cálculo."
-            
-    if "hola" in c or "saludos" in c:
-        return "Hola, Creador. Mis sensores están listos. ¿En qué te ayudo hoy?"
-    
-    if "qué eres" in c or "quién eres" in c:
-        return "Soy AMITI Infinito, tu sistema de mando, protección y evolución constante."
-
-    return f"He recibido tu instrucción: '{comando}'. Analizando prioridad..."
+        resultado = eval(re.search(r'\d+\s*[\+\-\*\/]\s*\d+', c).group())
+        return f"Cálculo completado: {resultado}."
+    if "hola" in c: return "Saludos, Creador. Mis sensores están listos."
+    return f"Instrucción '{comando}' procesada."
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    # Aumentar contador cada vez que alguien entra
+    ESTADO["clientes_en_linea"] += 1
+    
     if request.method == 'POST':
         comando = request.form.get("comando")
         if comando:
@@ -50,14 +40,18 @@ def index():
         <style>
             body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 10px; }
             .panel { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
-            #logs { height: 250px; overflow-y: auto; }
+            .stat { color: #ff00ff; font-weight: bold; }
+            #logs { height: 200px; overflow-y: auto; }
             input { background: #000; color: #00ff41; border: 1px solid #00ff41; width: 100%; padding: 10px; }
             button { background: #00ff41; color: #000; width: 100%; padding: 10px; border: none; font-weight: bold; }
         </style>
     </head>
     <body>
         <h2>AMITI OMEGA NÚCLEO</h2>
-        <div class="panel">Integridad: {{ESTADO.integridad}}% | Modo: {{ESTADO.modo}}</div>
+        <div class="panel">
+            Integridad: {{ESTADO.integridad}}% | Modo: {{ESTADO.modo}}<br>
+            Clientes en línea: <span class="stat">{{ESTADO.clientes_en_linea}}</span>
+        </div>
         <div class="panel" id="logs">
             {% for log in ESTADO.logs %}
                 <p style="color:{{log.c}}">[{{log.t}}] {{log.m}}</p>
