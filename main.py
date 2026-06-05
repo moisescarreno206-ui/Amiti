@@ -1,48 +1,47 @@
-import sqlite3, os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template_string
+import os
 
 app = Flask(__name__)
-LLAVE_MAESTRA = "AMITI_INFINITO_NEUTRO_OMEGA_2026"
-NODOS_AUTORIZADOS = ["NODO_MOVIL_01", "PC_CENTRAL", "NODO_RF_01"]
 
-# --- PARCHE DE ESTABILIDAD ---
+# Interfaz HTML sencilla para tu App
+HTML_INTERFACE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AMITI OMEGA</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; background: #000; color: #0f0; padding: 20px; }
+        #chat { height: 300px; border: 1px solid #0f0; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
+        input { width: 70%; padding: 10px; }
+        button { padding: 10px; background: #0f0; border: none; }
+    </style>
+</head>
+<body>
+    <h3>AMITI OMEGA VIGILANTE</h3>
+    <div id="chat"></div>
+    <input type="text" id="msg" placeholder="Escribe un comando...">
+    <button onclick="enviar()">Enviar</button>
+
+    <script>
+        function enviar() {
+            let msg = document.getElementById('msg').value;
+            document.getElementById('chat').innerHTML += '<p>Yo: ' + msg + '</p>';
+            document.getElementById('chat').innerHTML += '<p>AMITI: Procesando comando...</p>';
+            document.getElementById('msg').value = '';
+        }
+    </script>
+</body>
+</html>
+"""
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_INTERFACE)
+
 @app.route('/favicon.ico')
 def favicon():
-    return "", 204 
-
-# Inicialización de Base de Datos
-def init_db():
-    conn = sqlite3.connect('amiti_core.db')
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS eventos 
-                      (id INTEGER PRIMARY KEY, tipo TEXT, timestamp TIMESTAMP, origen TEXT, detalle TEXT)''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# --- RUTAS DE IA Y DEFENSA ---
-@app.route('/analizar', methods=['POST'])
-def analizar_datos():
-    if request.headers.get("X-AMITI-KEY") != LLAVE_MAESTRA:
-        return jsonify({"status": "ACCESO DENEGADO"}), 403
-    datos = request.json
-    resultado = f"Análisis completado para: {datos.get('input', 'N/A')}"
-    return jsonify({"analisis": resultado, "estado": "PROCESADO_OMEGA"})
-
-@app.route('/comms', methods=['POST'])
-def comunicacion():
-    datos = request.json
-    if request.headers.get("X-AMITI-KEY") != LLAVE_MAESTRA or datos.get("centinela_id") not in NODOS_AUTORIZADOS:
-        return jsonify({"status": "DENEGADO"}), 403
-    return jsonify({"status": "OK", "sistema": "OMEGA_VIGILANTE"})
-
-# --- RUTAS DE APP (PWA) ---
-@app.route('/')
-def index(): return "AMITI OMEGA CORE ACTIVO"
-
-@app.route('/manifest.json')
-def manifest(): return send_from_directory('static', 'manifest.json')
+    return "", 204
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
