@@ -1,48 +1,43 @@
 from flask import Flask, request, render_template_string
-import sqlite3, datetime
+import sqlite3, datetime, os
 
 app = Flask(__name__)
 
-# --- CONFIGURACIÓN DE MEMORIA ---
-def init_db():
+# --- INICIALIZACIÓN DE MEMORIA ---
+def get_db():
     conn = sqlite3.connect('amiti.db')
-    c = conn.cursor()
-    c.execute('CREATE TABLE IF NOT EXISTS memoria (pregunta TEXT, respuesta TEXT)')
-    conn.commit()
-    conn.close()
+    conn.execute('CREATE TABLE IF NOT EXISTS memoria (pregunta TEXT, respuesta TEXT)')
+    return conn
 
-init_db()
+# --- LÓGICA DE AMITI ---
+def procesar_logica(msg):
+    msg = msg.lower()
+    if "monitor" in msg: return "MONITOR: Sistema central al 98% de capacidad. Nodos estables."
+    if "seguridad" in msg: return "SEGURIDAD: Nodo casco central activo. Sin amenazas detectadas."
+    if "menu" in msg: return "MENU: Soporte Central en línea. Nodos clientes activos: 0. Esperando señales."
+    return f"IA AMITI: He analizado '{msg}'. Respuesta: Estoy procesando datos de forma autónoma."
 
-# --- LÓGICA INTERNA ---
-def procesar_IA(msg):
-    # Aquí simulamos la IA. Después conectaremos con tu base de datos.
-    return f"IA AMITI: He registrado tu consulta '{msg}'. Estoy analizando la mejor respuesta."
-
-def ejecutar_comando(msg):
-    if "monitor" in msg: return "MONITOR: Sistema central al 98% de capacidad."
-    if "seguridad" in msg: return "SEGURIDAD: Nodo casco central activo. Sin amenazas."
-    return None
-
-# --- ORQUESTADOR ---
+# --- RUTAS ---
 @app.route('/', methods=['GET', 'POST'])
 def handle():
-    respuesta = "Esperando ordenes..."
+    respuesta = "Esperando órdenes..."
     if request.method == 'POST':
-        msg = request.form.get("msg", "").lower()
-        comando = ejecutar_comando(msg)
-        respuesta = comando if comando else procesar_IA(msg)
-        
-        # Guardar en memoria
-        conn = sqlite3.connect('amiti.db')
-        conn.execute('INSERT INTO memoria VALUES (?, ?)', (msg, respuesta))
-        conn.commit()
-        conn.close()
+        msg = request.form.get("msg", "")
+        if msg:
+            respuesta = procesar_logica(msg)
+            conn = get_db()
+            conn.execute('INSERT INTO memoria VALUES (?, ?)', (msg, respuesta))
+            conn.commit()
+            conn.close()
 
     return render_template_string('''
         <body style="background:#000; color:#0f0; font-family:monospace; padding:20px;">
             <h3>AMITI NUCLEO MAESTRO</h3>
             <p>{{res}}</p>
-            <form method="POST"><input name="msg"><button>EJECUTAR</button></form>
+            <form method="POST">
+                <input name="msg" style="width:100%; background:#111; color:#0f0; border:1px solid #0f0;" required>
+                <button type="submit" style="width:100%; background:#0f0;">EJECUTAR</button>
+            </form>
         </body>
     ''', res=respuesta)
 
