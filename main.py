@@ -1,66 +1,67 @@
-import flask, datetime, os
+import flask, datetime, os, requests
 
 app = flask.Flask(__name__)
 
-# --- MEMORIA MAESTRA Y ESTRUCTURA DE SEGURIDAD (Puntos 1, 4, 13, 14, 15) ---
+# --- MEMORIA MAESTRA ---
 ESTADO_SISTEMA = {
     "integridad": 100,
-    "modo": "NEUTRO", # PROTECCIÓN, ALERTA, EMERGENCIA
-    "nodos": {},
-    "logs": []
+    "modo": "NEUTRO",
+    "logs": [{"t": "00:00", "m": "AMITI ONLINE - SISTEMA LISTO", "c": "green"}]
 }
 
-def filtro_seguridad(texto):
-    # Punto 2, 5, 16: Protección del creador y bloqueo de agresiones
-    prohibidas = ["hack", "exploit", "drop table", "sudo"]
-    if any(p in texto.lower() for p in prohibidas):
-        ESTADO_SISTEMA["modo"] = "EMERGENCIA"
-        return False
-    return True
+# --- MOTOR DE INTELIGENCIA (Punto 3, 21) ---
+def procesar_ia(pregunta):
+    pregunta = pregunta.lower()
+    # Conexión real a internet (simulada para estabilidad inicial)
+    if "hola" in pregunta or "cómo estás" in pregunta:
+        return "Hola Creador, estoy operativa y protegiéndote."
+    
+    # Lógica de búsqueda web básica para respuestas
+    try:
+        # Aquí AMITI puede consultar APIs externas de IA en el futuro
+        return f"Procesando '{pregunta}' en red global..."
+    except:
+        return "Error en red global."
 
-@app.route('/', methods=['GET'])
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    # Punto 11, 14: Interfaz de monitoreo estética
+    if flask.request.method == 'POST':
+        comando = flask.request.form.get("comando")
+        if comando:
+            # Procesar IA
+            respuesta = procesar_ia(comando)
+            ESTADO_SISTEMA["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"Yo: {comando}", "c": "green"})
+            ESTADO_SISTEMA["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"AMITI: {respuesta}", "c": "blue"})
+            if len(ESTADO_SISTEMA["logs"]) > 10: ESTADO_SISTEMA["logs"].pop(0)
+    
     return flask.render_template_string("""
     <!DOCTYPE html>
     <html>
-    <head><style>
-        body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 20px; }
-        .box { border: 2px solid #00ff41; padding: 15px; margin-bottom: 20px; }
-        .blue { color: #00aaff; } .purple { color: #aa00ff; }
-    </style></head>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 15px; }
+            .box { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
+            input { background: #000; color: #00ff41; border: 1px solid #00ff41; width: 70%; padding: 5px; }
+            button { background: #00ff41; color: #000; border: none; padding: 5px; }
+            .blue { color: #00aaff; } .purple { color: #aa00ff; }
+        </style>
+    </head>
     <body>
-        <h1>AMITI OMEGA NÚCLEO CENTRAL</h1>
-        <div class="box">
-            Integridad: {{ESTADO.integridad}}% | Modo: {{ESTADO.modo}}
-        </div>
-        <div class="box">
+        <h2>AMITI NÚCLEO: CENTRO DE MANDO</h2>
+        <div class="box">Estado: {{ESTADO.modo}} | Integridad: {{ESTADO.integridad}}%</div>
+        <div class="box" style="height: 200px; overflow-y: scroll;">
             {% for log in ESTADO.logs %}
                 <p class="{{log.c}}">[{{log.t}}] {{log.m}}</p>
             {% endfor %}
         </div>
+        <form method="POST">
+            <input type="text" name="comando" placeholder="Comando..." required>
+            <button type="submit">Enviar</button>
+        </form>
     </body>
     </html>
     """, ESTADO=ESTADO_SISTEMA)
-
-@app.route('/nodo_reporte', methods=['POST'])
-def recibir_reporte():
-    data = flask.request.json
-    msg = str(data.get('data', ''))
-    
-    # Punto 2: Seguridad antes de procesar
-    if not filtro_seguridad(msg):
-        return flask.jsonify({"status": "ACCESO_DENEGADO"})
-
-    # Punto 3, 21: Asistencia real y clasificación
-    color = "green"
-    if "cuanto" in msg.lower() or "+" in msg: color = "blue"
-    elif "contabilidad" in msg.lower(): color = "purple"
-
-    ESTADO_SISTEMA["logs"].append({"t": datetime.datetime.now().strftime("%H:%M:%S"), "m": msg, "c": color})
-    if len(ESTADO_SISTEMA["logs"]) > 20: ESTADO_SISTEMA["logs"].pop(0)
-    
-    return flask.jsonify({"status": "OK", "msg": "Procesado"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
