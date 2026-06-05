@@ -1,50 +1,51 @@
-# main.py
 from flask import Flask, request, render_template_string
-import sqlite3
+import sqlite3, datetime
 
 app = Flask(__name__)
 
-# --- LÓBULO 1: MEMORIA Y BIBLIOTECA (La base de datos) ---
-class Memoria:
-    @staticmethod
-    def guardar(pregunta, respuesta):
-        conn = sqlite3.connect('amiti.db')
-        conn.execute('CREATE TABLE IF NOT EXISTS conocimiento (q TEXT, a TEXT)')
-        conn.execute('INSERT INTO conocimiento VALUES (?, ?)', (pregunta, respuesta))
-        conn.commit()
-        conn.close()
+# --- LÓGICA DE BASE DE DATOS (Memoria) ---
+def registrar_interaccion(pregunta, respuesta):
+    conn = sqlite3.connect('amiti.db')
+    conn.execute('CREATE TABLE IF NOT EXISTS conocimiento (q TEXT, a TEXT)')
+    conn.execute('INSERT INTO conocimiento VALUES (?, ?)', (pregunta, respuesta))
+    conn.commit()
+    conn.close()
 
-# --- LÓBULO 2: ASISTENCIA (IA) ---
-class Asistencia:
-    @staticmethod
-    def procesar(msg):
-        # Aquí conectaremos la lógica real de IA
-        return f"AMITI Asistencia: Analizando tu input '{msg}' con profundidad."
+# --- LÓGICA DE COMANDOS (Sistema) ---
+def manejar_comando(msg):
+    msg = msg.lower()
+    if "monitor" in msg: return "ESTADO: Núcleo Online. Memoria: Activa. Integridad: 100%."
+    if "seguridad" in msg: return "SEGURIDAD: Nodo Casco Central protegido. No hay intrusiones."
+    if "ayuda" in msg: return "COMANDOS: monitor, seguridad, ayuda, o hazme una consulta."
+    return None
 
-# --- LÓBULO 3: MONITOR Y SEGURIDAD ---
-class Sistema:
-    @staticmethod
-    def ejecutar(comando):
-        if "monitor" in comando: return "ESTADO: Procesador 5%, RAM 200MB, Integridad 100%."
-        if "seguridad" in comando: return "SEGURIDAD: Todos los nodos clientes están en reposo."
-        return None
-
-# --- EL PUENTE (Orquestador que comunica todo) ---
-@app.route('/', methods=['POST', 'GET'])
+# --- ORQUESTADOR (El Puente) ---
+@app.route('/', methods=['GET', 'POST'])
 def puente():
-    resultado = "Esperando..."
+    resultado = "Casco Central en línea. Esperando órdenes..."
+    
     if request.method == 'POST':
-        msg = request.form.get("msg", "").lower()
-        
-        # El Puente decide a qué Lóbulo enviar la señal
-        comando_sistema = Sistema.ejecutar(msg)
-        if comando_sistema:
-            resultado = comando_sistema
-        else:
-            resultado = Asistencia.procesar(msg)
-        
-        # El Puente le dice a la Memoria que guarde el intercambio
-        Memoria.guardar(msg, resultado)
+        msg = request.form.get("msg", "")
+        if msg:
+            # 1. Intentar ejecutar comando
+            comando = manejar_comando(msg)
+            # 2. Si no es comando, procesar como IA
+            resultado = comando if comando else f"IA: He recibido '{msg}'. Estoy aprendiendo de esto."
             
-    return render_template_string('...', res=resultado)
+            # 3. Registrar en memoria
+            registrar_interaccion(msg, resultado)
+            
+    return render_template_string('''
+        <body style="background:#000; color:#0f0; font-family:monospace; padding:20px;">
+            <h3>AMITI NUCLEO MAESTRO</h3>
+            <p>{{res}}</p>
+            <form method="POST">
+                <input name="msg" style="width:100%; background:#111; color:#0f0; border:1px solid #0f0;" required autofocus>
+                <button type="submit" style="width:100%; background:#0f0;">ENVIAR</button>
+            </form>
+        </body>
+    ''', res=resultado)
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=10000)
     
