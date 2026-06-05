@@ -3,7 +3,7 @@ import sqlite3, os, random
 
 app = Flask(__name__)
 
-# --- CÓDIGO HTML Y CSS CON MENÚ FLOTANTE ---
+# --- INTERFAZ CON REPORTE INTEGRADO ---
 HTML_INTERFACE = """
 <!DOCTYPE html>
 <html>
@@ -22,7 +22,6 @@ async function enviar(){
 </script></body></html>
 """
 
-# --- SEGURIDAD Y LÓGICA ---
 def es_seguro(texto):
     peligros = ["DROP TABLE", "DELETE FROM", "--", ";", "SELECT * FROM"]
     return not any(p in texto.upper() for p in peligros)
@@ -47,13 +46,25 @@ def estado_red():
 @app.route('/chat', methods=['POST'])
 def chat():
     comando = request.json.get("comando", "").lower()
-    if "peligro" in comando or "alerta" in comando: return jsonify({"respuesta": "⚠️ ALERTA: Protocolo de seguridad ejecutado."})
     
+    # Módulo de Seguridad y Alertas
+    if "peligro" in comando or "alerta" in comando: 
+        return jsonify({"respuesta": "⚠️ ALERTA: Protocolo de seguridad ejecutado."})
+    
+    # Módulo de Reporte Inteligente
+    if "reporte" in comando:
+        conn = sqlite3.connect('amiti_core.db')
+        total = conn.execute("SELECT COUNT(*) FROM eventos WHERE tipo='NUEVO_CONOCIMIENTO'").fetchone()[0]
+        conn.close()
+        return jsonify({"respuesta": f"ESTADO: Tengo {total} unidades de conocimiento valioso almacenadas y optimizadas."})
+    
+    # Aprendizaje
     conn = sqlite3.connect('amiti_core.db')
-    # Filtrado inteligente: Solo guarda si es significativo
     tipo = "NUEVO_CONOCIMIENTO" if len(comando) > 10 else "OBSERVACIÓN_LEVE"
-    conn.execute("INSERT INTO eventos (tipo, detalle) VALUES (?, ?)", (tipo, comando))
-    conn.commit(); conn.close()
+    if es_seguro(comando):
+        conn.execute("INSERT INTO eventos (tipo, detalle) VALUES (?, ?)", (tipo, comando))
+        conn.commit()
+    conn.close()
     
     return jsonify({"respuesta": "Procesado. Conocimiento optimizado." if tipo == "NUEVO_CONOCIMIENTO" else "Comando registrado."})
 
@@ -66,7 +77,7 @@ def nodo_reporte():
         tipo = "NUEVO_CONOCIMIENTO" if len(info) > 15 else "DATO_BASURA"
         conn.execute("INSERT INTO eventos (tipo, detalle) VALUES (?, ?)", (tipo, info))
         conn.commit(); conn.close()
-        return jsonify({"status": "APRENDIZAJE_INTEGRADO" if tipo == "NUEVO_CONOCIMIENTO" else "IGNORADO"})
+        return jsonify({"status": "APRENDIZAJE_INTEGRADO"})
     return jsonify({"status": "BLOQUEADO"}), 403
 
 if __name__ == "__main__":
