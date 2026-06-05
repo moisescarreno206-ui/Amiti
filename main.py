@@ -3,11 +3,13 @@ import datetime, os, hashlib
 
 app = Flask(__name__)
 
-# MEMORIA MAESTRA OMEGA V10
+# CONFIGURACION DE ACCESO
+# Sustituye 'TU_IP_PUBLICA' por la IP desde la que te conectas habitualmente
+IP_ADMIN = "123.45.67.89" 
+
 RED = {
-    "conocimiento": ["Inicio de Sistema V10"],
-    "nodos": {}, 
-    "logs": [{"t": "00:00", "m": "NUCLEO OMEGA V10: ONLINE", "c": "#00ff41"}]
+    "nodos": {},
+    "logs": [{"t": "00:00", "m": "NUCLEO OMEGA V10: SISTEMAS ACTIVOS", "c": "#00ff41"}]
 }
 
 def obtener_color(ip):
@@ -16,75 +18,59 @@ def obtener_color(ip):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    color = obtener_color(ip)
-    
-    if ip not in RED["nodos"]:
-        RED["nodos"][ip] = {"acciones": 0}
+    es_admin = (ip == IP_ADMIN)
     
     canal = request.form.get("canal", "asistencia")
     msg = request.form.get("msg")
     
     if msg:
-        RED["nodos"][ip]["acciones"] += 1
+        # Registro lógico
+        RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "NODO " + ip[-4:] + ": " + msg, "c": "#ffffff"})
         
-        # LOGICA DE AUTO-MEJORA (AUTOINYECCION)
-        if canal == "evolucion":
-            RED["conocimiento"].append(msg)
-            res = "Dato inyectado. Nivel de conocimiento: " + str(len(RED["conocimiento"]))
-        elif canal == "monitor":
-            res = "Escaneando estado de red..."
+        # LOGICA SEGUN PRIVILEGIOS
+        if es_admin:
+            res = "MAESTRO: Comando ejecutado en canal " + canal
         else:
-            res = "Asistente AMITI: Procesando consulta."
-            
-        RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "NODO " + ip[-4:] + ": " + msg, "c": color})
-        RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "AMITI: " + res, "c": "#ffffff"})
+            res = "CLIENTE: Solicitud recibida y en cola."
+        
+        RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "AMITI: " + res, "c": "#00ff41"})
         if len(RED["logs"]) > 6: RED["logs"].pop(0)
 
     template = """
     <!DOCTYPE html>
     <html>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             body { background: #000; color: #00ff41; font-family: monospace; padding: 20px; }
-            .panel { border: 3px solid #00ff41; padding: 20px; margin: 10px 0; border-radius: 10px; }
-            select, input, button { width: 100%; padding: 20px; margin: 10px 0; background: #111; color: #fff; border: 2px solid #00ff41; font-size: 1.2rem; }
-            button { background: #00ff41; color: #000; font-weight: bold; }
+            .panel { border: 3px solid #00ff41; padding: 20px; border-radius: 10px; }
+            select, input, button { width: 100%; padding: 20px; margin: 10px 0; background: #111; color: #fff; border: 2px solid #00ff41; }
         </style>
     </head>
     <body>
-        <h2>AMITI OMEGA V10</h2>
+        <h2>{{ "AMITI NUCLEO MAESTRO" if es_admin else "AMITI INTERFAZ PUBLICO" }}</h2>
         
-        {% if canal == 'monitor' %}
-        <div class="panel">
-            <h3>TELEMETRIA DE NODOS</h3>
-            {% for ip, info in RED.nodos.items() %}
-            <div style="color: {{obtener_color(ip)}};">
-                NODO: {{ ip[-4:] }} | ACTIVIDAD: {{ info.acciones }}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
         <div class="panel">
             {% for log in RED.logs %}
-                <p style="color: {{log.c}}">[{{log.t}}] {{log.m}}</p>
+                <p style="color:{{log.c}}">{{log.m}}</p>
             {% endfor %}
         </div>
 
         <form method="POST">
+            {% if es_admin %}
             <select name="canal">
                 <option value="asistencia">1. ASISTENCIA</option>
-                <option value="evolucion">3. AUTO-EVOLUCION</option>
-                <option value="monitor">4. MONITOR COMPLETO</option>
+                <option value="seguridad">2. SEGURIDAD</option>
+                <option value="evolucion">3. EVOLUCION</option>
+                <option value="monitor">4. MONITOR MAESTRO</option>
             </select>
-            <input type="text" name="msg" placeholder="Transmision..." required>
+            {% endif %}
+            <input type="text" name="msg" placeholder="Transmisión..." required>
             <button type="submit">TRANSMITIR</button>
         </form>
     </body>
     </html>
     """
-    return render_template_string(template, RED=RED, canal=canal, obtener_color=obtener_color)
+    return render_template_string(template, RED=RED, es_admin=es_admin)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
