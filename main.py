@@ -3,14 +3,14 @@ import datetime, os, hashlib
 
 app = Flask(__name__)
 
-# Memoria Estructural
+# MEMORIA MAESTRA OMEGA V10
 RED = {
+    "conocimiento": ["Inicio de Sistema V10"],
     "nodos": {}, 
-    "logs": [{"t": "00:00", "m": "NUCLEO OMEGA V10: SISTEMAS ACTIVOS", "c": "#00ff41"}]
+    "logs": [{"t": "00:00", "m": "NUCLEO OMEGA V10: ONLINE", "c": "#00ff41"}]
 }
 
 def obtener_color(ip):
-    # Genera una firma de color única por IP
     return "#" + hashlib.md5(ip.encode()).hexdigest()[:6]
 
 @app.route('/', methods=['GET', 'POST'])
@@ -18,7 +18,6 @@ def index():
     ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     color = obtener_color(ip)
     
-    # Registro de nodo
     if ip not in RED["nodos"]:
         RED["nodos"][ip] = {"acciones": 0}
     
@@ -28,13 +27,14 @@ def index():
     if msg:
         RED["nodos"][ip]["acciones"] += 1
         
-        # LOGICA DE CANALES REAL
-        if canal == "monitor":
-            res = "MONITOR: Analizando integridad de nodo " + ip[-4:]
-        elif canal == "evolucion":
-            res = "EVOLUCION: Datos integrados al nucleo. Aprendizaje activo."
+        # LOGICA DE AUTO-MEJORA (AUTOINYECCION)
+        if canal == "evolucion":
+            RED["conocimiento"].append(msg)
+            res = "Dato inyectado. Nivel de conocimiento: " + str(len(RED["conocimiento"]))
+        elif canal == "monitor":
+            res = "Escaneando estado de red..."
         else:
-            res = "ASISTENCIA: Procesando consulta."
+            res = "Asistente AMITI: Procesando consulta."
             
         RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "NODO " + ip[-4:] + ": " + msg, "c": color})
         RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "AMITI: " + res, "c": "#ffffff"})
@@ -48,7 +48,6 @@ def index():
         <style>
             body { background: #000; color: #00ff41; font-family: monospace; padding: 20px; }
             .panel { border: 3px solid #00ff41; padding: 20px; margin: 10px 0; border-radius: 10px; }
-            .log-item { font-size: 1.2rem; margin: 5px 0; }
             select, input, button { width: 100%; padding: 20px; margin: 10px 0; background: #111; color: #fff; border: 2px solid #00ff41; font-size: 1.2rem; }
             button { background: #00ff41; color: #000; font-weight: bold; }
         </style>
@@ -60,7 +59,7 @@ def index():
         <div class="panel">
             <h3>TELEMETRIA DE NODOS</h3>
             {% for ip, info in RED.nodos.items() %}
-            <div style="color: {{obtener_color(ip)}}; border-bottom: 1px solid #333;">
+            <div style="color: {{obtener_color(ip)}};">
                 NODO: {{ ip[-4:] }} | ACTIVIDAD: {{ info.acciones }}
             </div>
             {% endfor %}
@@ -69,15 +68,14 @@ def index():
 
         <div class="panel">
             {% for log in RED.logs %}
-                <p class="log-item" style="color: {{log.c}}">[{{log.t}}] {{log.m}}</p>
+                <p style="color: {{log.c}}">[{{log.t}}] {{log.m}}</p>
             {% endfor %}
         </div>
 
         <form method="POST">
             <select name="canal">
                 <option value="asistencia">1. ASISTENCIA</option>
-                <option value="seguridad">2. SEGURIDAD</option>
-                <option value="evolucion">3. EVOLUCION</option>
+                <option value="evolucion">3. AUTO-EVOLUCION</option>
                 <option value="monitor">4. MONITOR COMPLETO</option>
             </select>
             <input type="text" name="msg" placeholder="Transmision..." required>
