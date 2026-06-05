@@ -3,71 +3,79 @@ import datetime, os
 
 app = Flask(__name__)
 
-# Memoria maestra del Núcleo
 RED = {
     "integridad": 100,
-    "modo": "ACTIVO",
-    "conocimiento": ["AMITI es el centro de mando"],
-    "logs": [{"t": "00:00", "m": "TRIPLE CANAL INICIADO", "c": "cyan"}]
+    "conocimiento": ["AMITI Iniciado"],
+    "logs": [{"t": "00:00", "m": "SISTEMA V9 OPERATIVO", "c": "cyan"}]
 }
-
-def procesar_canal(tipo, dato):
-    dato = dato.lower()
-    # Canal 1: Asistencia (IA)
-    if tipo == "asistencia":
-        if "hola" in dato: return "Hola Creador, aquí AMITI. Estoy operativa."
-        return f"Procesando consulta táctica: '{dato}'."
-    
-    # Canal 2: Seguridad/Reportes
-    if tipo == "seguridad":
-        if "peligro" in dato or "reporte" in dato:
-            return "ESCANEO: Integridad al 100%. Sin amenazas detectadas en la red."
-        return "Canal de seguridad abierto. Reportando..."
-    
-    # Canal 3: Inyección de Conocimiento (Evolución)
-    if tipo == "evolucion":
-        if dato not in RED["conocimiento"]:
-            RED["conocimiento"].append(dato)
-            return f"Dato '{dato}' asimilado. Nivel de red subió a {len(RED['conocimiento'])}."
-        return "Dato ya existe en la red."
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == 'POST':
-        canal = request.form.get("canal")
-        msg = request.form.get("msg")
-        if msg:
-            RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"NODO: {msg}", "c": "green"})
-            respuesta = procesar_canal(canal, msg)
-            RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"AMITI: {respuesta}", "c": "cyan"})
+    modo = request.form.get("canal", "asistencia")
+    msg = request.form.get("msg")
     
+    if msg:
+        if modo == "evolucion":
+            RED["conocimiento"].append(msg)
+            res = f"Dato asimilado. Nivel: {len(RED['conocimiento'])}"
+        elif modo == "seguridad":
+            res = "REPORTANDO: Integridad 100%. Sin peligros detectados."
+        else:
+            res = f"IA AMITI: Entendido, Creador. Procesando '{msg}'."
+            
+        RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"NODO: {msg}", "c": "gray"})
+        RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"AMITI: {res}", "c": "white"})
+        if len(RED["logs"]) > 10: RED["logs"].pop(0)
+
     return render_template_string("""
     <!DOCTYPE html>
     <html>
-    <head><style>
-        body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 10px; }
-        .panel { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
-        input, select, button { width: 100%; background: #000; color: #00ff41; border: 1px solid #00ff41; padding: 8px; margin: 5px 0; }
-        button { background: #00ff41; color: #000; font-weight: bold; }
-    </style></head>
-    <body>
-        <h2>AMITI OMEGA NÚCLEO</h2>
-        <div class="panel">Nivel de Conocimiento: {{RED.conocimiento|length}}</div>
-        <div class="panel" id="logs" style="height:150px; overflow-y:auto;">
-            {% for log in RED.logs %}<p style="color:{{log.c}}">[{{log.t}}] {{log.m}}</p>{% endfor %}
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            :root { --bg: #000; --border: #00ff41; --text1: #00ff41; --text2: #00aaff; }
+            body { background: var(--bg); color: var(--text1); font-family: 'Courier New', monospace; margin: 0; padding: 20px; transition: 0.5s; }
+            .container { max-width: 800px; margin: auto; }
+            .panel { border: 2px solid var(--border); padding: 20px; margin-bottom: 15px; border-radius: 10px; background: rgba(0,0,0,0.8); }
+            h2 { margin: 0; font-size: 1.8rem; text-align: center; color: var(--border); }
+            #logs { height: 300px; overflow-y: auto; font-size: 1.1rem; }
+            select, input, button { width: 100%; padding: 15px; margin: 10px 0; background: #000; color: var(--text1); border: 2px solid var(--border); border-radius: 5px; font-size: 1.2rem; }
+            button { background: var(--border); color: #000; font-weight: bold; cursor: pointer; }
+            
+            /* ESTILOS DE CANAL */
+            .c1 { --border: #00ff41; --text1: #00ff41; --text2: #00aaff; }
+            .c2 { --border: #ff0000; --text1: #ffff00; --text2: #00aaff; }
+            .c3 { --border: #00ffff; --text1: #ffa500; --text2: #8a2be2; }
+        </style>
+    </head>
+    <body class="c{{ '1' if canal == 'asistencia' else '2' if canal == 'seguridad' else '3' }}">
+        <div class="container">
+            <h2>AMITI OMEGA NÚCLEO</h2>
+            <div class="panel">NIVEL DE CONOCIMIENTO: {{ RED.conocimiento|length }}</div>
+            <div class="panel" id="logs">
+                {% for log in RED.logs %}
+                    <p style="color:{{log.c}}">[{{log.t}}] {{log.m}}</p>
+                {% endfor %}
+            </div>
+            <form method="POST">
+                <select name="canal" onchange="this.form.submit()">
+                    <option value="asistencia" {{ 'selected' if canal == 'asistencia' }}>1. ASISTENCIA IA</option>
+                    <option value="seguridad" {{ 'selected' if canal == 'seguridad' }}>2. SEGURIDAD/REPORTES</option>
+                    <option value="evolucion" {{ 'selected' if canal == 'evolucion' }}>3. INYECCIÓN DE DATOS</option>
+                </select>
+                <input type="text" name="msg" placeholder="Ingresar señal tactica..." required>
+                <button type="submit">ENVIAR</button>
+            </form>
         </div>
-        <form method="POST">
-            <select name="canal">
-                <option value="asistencia">1. ASISTENCIA IA</option>
-                <option value="seguridad">2. SEGURIDAD/REPORTES</option>
-                <option value="evolucion">3. INYECCIÓN DE DATOS</option>
-            </select>
-            <input type="text" name="msg" placeholder="Ingresar señal..." required>
-            <button type="submit">TRANSMITIR SEÑAL</button>
-        </form>
+        <script>
+            var objDiv = document.getElementById("logs");
+            objDiv.scrollTop = objDiv.scrollHeight;
+        </script>
     </body>
     </html>
-    """, RED=RED)
+    """, RED=RED, canal=modo)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
+¡Espero tus capturas del nuevo diseño en acción! ¿Qué te parece la nueva estética del Tridente AMITI?
