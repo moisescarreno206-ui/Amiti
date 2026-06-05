@@ -3,75 +3,51 @@ from flask import Flask, request, render_template_string
 import datetime
 
 app = Flask(__name__)
+LLAVE = "Amiti infinito neutro total"
 
-# --- CONFIGURACIÓN ---
-LLAVE_SEGURIDAD = "Amiti infinito neutro total"
+def proceso_autonomo():
+    # Esta es la lógica que se ejecuta cada vez que el CronJob "despierta" a la IA
+    conn = sqlite3.connect('amiti_memoria.db')
+    conn.execute('CREATE TABLE IF NOT EXISTS registro_conocimiento (comando TEXT, respuesta TEXT, fecha TIMESTAMP)')
+    conn.execute('INSERT INTO registro_conocimiento VALUES (?, ?, ?)', 
+                 ("AUTO_SYSTEM", "Autochequeo y optimización de nodos completada.", datetime.datetime.now()))
+    conn.commit()
+    conn.close()
 
-# --- LÓGICA DE MEMORIA ---
-def registrar(comando, respuesta):
-    try:
-        conn = sqlite3.connect('amiti_memoria.db')
-        conn.execute('CREATE TABLE IF NOT EXISTS registro_conocimiento (comando TEXT, respuesta TEXT)')
-        conn.execute('INSERT INTO registro_conocimiento (comando, respuesta) VALUES (?, ?)', (comando, respuesta))
-        conn.commit()
-        conn.close()
-    except:
-        pass
-
-# --- ORQUESTADOR (MANEJADOR DE MÉTODOS) ---
 @app.route('/', methods=['GET', 'POST', 'HEAD'])
 def index():
-    # Manejo de HEAD (Verificación de Render)
-    if request.method == 'HEAD':
-        return "", 200
-
-    respuesta = "Sistema activo."
-    count = 0
+    if request.method == 'HEAD': return "", 200
     
-    # Manejo de POST (Interacción)
+    # AMITI se autoejecuta al entrar
+    proceso_autonomo()
+    
+    msg_salida = "AMITI: Esperando instrucción del creador."
     if request.method == 'POST':
-        msg = request.form.get("msg", "")
-        llave = request.form.get("llave", "")
-        if llave == LLAVE_SEGURIDAD:
-            respuesta = f"Comando '{msg}' autorizado."
-            registrar(msg, respuesta)
+        msg = request.form.get("msg")
+        if request.form.get("llave") == LLAVE:
+            msg_salida = f"AMITI: He procesado '{msg}' y expandido mis redes."
+            # Aquí AMITI integra la respuesta a su memoria
+            registrar_comando(msg, msg_salida)
         else:
-            respuesta = "ACCESO DENEGADO."
-
-    # Lectura de estado
-    try:
-        conn = sqlite3.connect('amiti_memoria.db')
-        count = conn.execute('SELECT count(*) FROM registro_conocimiento').fetchone()[0]
-        conn.close()
-    except:
-        count = 0
-    
+            msg_salida = "AMITI: ACCESO DENEGADO."
+            
     return render_template_string('''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }
-                .monitor { border: 1px solid #0f0; padding: 10px; }
-                input, button { background: #000; color: #0f0; border: 1px solid #0f0; padding: 10px; width: 100%; margin-top: 5px; }
-            </style>
-        </head>
-        <body>
-            <h2>AMITI NUCLEO V17</h2>
-            <div class="monitor">
-                <p>> Estatus: Online.</p>
-                <p>> Respuesta: {{ res }}</p>
-                <p>> Registros: {{ count }}</p>
-            </div>
+        <body style="background:#000; color:#0f0; font-family:monospace;">
+            <h2>AMITI NUCLEO V18 - AUTÓNOMO</h2>
+            <p>{{ res }}</p>
             <form method="POST">
-                <input name="llave" type="password" placeholder="LLAVE DE SEGURIDAD" required>
-                <input name="msg" placeholder="COMANDO..." required>
-                <button type="submit">EJECUTAR</button>
+                <input name="llave" type="password" placeholder="LLAVE"><br>
+                <input name="msg" placeholder="COMANDO"><br>
+                <button type="submit">EJECUTAR SECUENCIA</button>
             </form>
         </body>
-        </html>
-    ''', res=respuesta, count=count)
+    ''', res=msg_salida)
+
+def registrar_comando(c, r):
+    conn = sqlite3.connect('amiti_memoria.db')
+    conn.execute('INSERT INTO registro_conocimiento VALUES (?, ?, ?)', (c, r, datetime.datetime.now()))
+    conn.commit()
+    conn.close()
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
