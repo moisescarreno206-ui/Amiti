@@ -1,10 +1,14 @@
-import sqlite3, os, compileall, shutil
+import sqlite3, os
 from flask import Flask, request, jsonify, send_from_directory
-from datetime import datetime, timedelta
 
 app = Flask(__name__)
 LLAVE_MAESTRA = "AMITI_INFINITO_NEUTRO_OMEGA_2026"
 NODOS_AUTORIZADOS = ["NODO_MOVIL_01", "PC_CENTRAL", "NODO_RF_01"]
+
+# --- PARCHE DE ESTABILIDAD ---
+@app.route('/favicon.ico')
+def favicon():
+    return "", 204 
 
 # Inicialización de Base de Datos
 def init_db():
@@ -17,18 +21,15 @@ def init_db():
 
 init_db()
 
-# --- RUTA DE IA ANALÍTICA (FUSIÓN DEL PINTOR) ---
+# --- RUTAS DE IA Y DEFENSA ---
 @app.route('/analizar', methods=['POST'])
 def analizar_datos():
     if request.headers.get("X-AMITI-KEY") != LLAVE_MAESTRA:
         return jsonify({"status": "ACCESO DENEGADO"}), 403
-    
     datos = request.json
-    # Aquí vive la lógica de tu IA (Procesamiento analítico)
     resultado = f"Análisis completado para: {datos.get('input', 'N/A')}"
     return jsonify({"analisis": resultado, "estado": "PROCESADO_OMEGA"})
 
-# --- RUTA DE DEFENSA Y COMUNICACIÓN (OMEGA) ---
 @app.route('/comms', methods=['POST'])
 def comunicacion():
     datos = request.json
