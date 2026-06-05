@@ -1,16 +1,34 @@
 from flask import Flask, request, render_template_string
-import datetime
-import os
+import datetime, os, random
 
 app = Flask(__name__)
 
-# Memoria maestra unificada
+# Memoria maestra evolucionada
 ESTADO = {
     "integridad": 100,
     "modo": "NEUTRO",
-    "logs": [{"t": "00:00", "m": "SISTEMA ESTABLE", "c": "green"}],
+    "logs": [{"t": "00:00", "m": "SISTEMA INTEGRADO V.EVOLUCIÓN", "c": "green"}],
     "nodos": ["NODO_ALPHA", "NODO_BETA"]
 }
+
+def analizar_comando(comando):
+    c = comando.lower()
+    # Módulo de Seguridad (Punto 2, 5, 16)
+    amenazas = ["hack", "exploit", "virus", "destruir"]
+    if any(a in c for a in amenazas):
+        ESTADO["modo"] = "ALERTA"
+        ESTADO["integridad"] -= 10
+        return "¡AMENAZA DETECTADA! Bloqueando acceso por seguridad del Creador."
+    
+    # Módulo de Inteligencia (Punto 3, 21)
+    if "quién eres" in c: return "Soy AMITI Infinito. Mi propósito es tu protección y evolución."
+    if "analiza" in c: return "Analizando red... Integridad de nodos: 100%. Sin anomalías."
+    
+    # Módulo de Autoreconstrucción (Simulado - Punto 7, 9)
+    if "optimiza" in c:
+        return "Ejecutando rutina de autodiagnóstico. Código reconstruido para máxima eficiencia."
+        
+    return f"Comando '{comando}' procesado exitosamente por AMITI."
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -18,8 +36,8 @@ def index():
         comando = request.form.get("comando")
         if comando:
             ESTADO["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"Yo: {comando}", "c": "green"})
-            # Simulación de respuesta IA
-            ESTADO["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "AMITI: Comando recibido y procesado.", "c": "blue"})
+            respuesta = analizar_comando(comando)
+            ESTADO["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"AMITI: {respuesta}", "c": "blue"})
             if len(ESTADO["logs"]) > 10: ESTADO["logs"].pop(0)
             
     return render_template_string("""
@@ -28,20 +46,17 @@ def index():
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; margin: 0; padding: 10px; }
+            body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 10px; }
             .panel { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
             #logs { height: 200px; overflow-y: auto; }
             input { background: #000; color: #00ff41; border: 1px solid #00ff41; width: 100%; padding: 10px; box-sizing: border-box; }
             button { background: #00ff41; color: #000; width: 100%; padding: 10px; border: none; font-weight: bold; margin-top: 5px; }
-            .node { color: #ff00ff; font-size: 0.8rem; }
+            .alerta { color: red; font-weight: bold; }
         </style>
     </head>
     <body>
         <h2>AMITI OMEGA NÚCLEO</h2>
-        <div class="panel">
-            <strong>VIGILANCIA:</strong>
-            {% for nodo in ESTADO.nodos %}<div class="node">> {{nodo}} [ACTIVO]</div>{% endfor %}
-        </div>
+        <div class="panel">Estado: {{ESTADO.modo}} | Integridad: {{ESTADO.integridad}}%</div>
         <div class="panel" id="logs">
             {% for log in ESTADO.logs %}
                 <p style="color:{{log.c}}">[{{log.t}}] {{log.m}}</p>
