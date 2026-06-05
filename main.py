@@ -9,7 +9,6 @@ REGISTRO_ACTIVIDAD = []
 
 @app.route('/')
 def index():
-    # Dashboard táctico
     return render_template_string("""
     <!DOCTYPE html>
     <html>
@@ -42,6 +41,3 @@ def recibir_reporte():
     REGISTRO_ACTIVIDAD.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {nodo_id}: {data.get('data')}")
     if len(REGISTRO_ACTIVIDAD) > 15: REGISTRO_ACTIVIDAD.pop(0)
     return jsonify({"status": "recibido"})
-
-if __name__ == "__main__":
-    app.run()
