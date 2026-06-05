@@ -1,36 +1,27 @@
 from flask import Flask, request, render_template_string
-import datetime, os, re
+import datetime, os, uuid
 
 app = Flask(__name__)
 
-# Memoria maestra con contador de clientes
-ESTADO = {
+# Memoria de red expandida
+RED = {
     "integridad": 100,
-    "modo": "NEUTRO",
-    "clientes_en_linea": 0,
-    "logs": [{"t": "00:00", "m": "NÚCLEO ONLINE - MONITOR ACTIVO", "c": "green"}]
+    "modo": "MONITOREO",
+    "clientes": {}, # Diccionario para rastrear comportamiento: {id: {hora, ip}}
+    "logs": [{"t": "00:00", "m": "TELEMETRÍA DE RED INICIADA", "c": "green"}]
 }
-
-def analizar_comando(comando):
-    c = comando.lower()
-    if re.search(r'\d+\s*[\+\-\*\/]\s*\d+', c):
-        resultado = eval(re.search(r'\d+\s*[\+\-\*\/]\s*\d+', c).group())
-        return f"Cálculo completado: {resultado}."
-    if "hola" in c: return "Saludos, Creador. Mis sensores están listos."
-    return f"Instrucción '{comando}' procesada."
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # Aumentar contador cada vez que alguien entra
-    ESTADO["clientes_en_linea"] += 1
+    # Identificar cliente
+    client_id = request.headers.get('X-Forwarded-For', request.remote_addr)
+    RED["clientes"][client_id] = datetime.datetime.now().strftime("%H:%M:%S")
     
     if request.method == 'POST':
         comando = request.form.get("comando")
         if comando:
-            ESTADO["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"Yo: {comando}", "c": "green"})
-            respuesta = analizar_comando(comando)
-            ESTADO["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"AMITI: {respuesta}", "c": "blue"})
-            if len(ESTADO["logs"]) > 10: ESTADO["logs"].pop(0)
+            RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"NODO {client_id[-4:]}: {comando}", "c": "green"})
+            if len(RED["logs"]) > 8: RED["logs"].pop(0)
             
     return render_template_string("""
     <!DOCTYPE html>
@@ -40,30 +31,29 @@ def index():
         <style>
             body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 10px; }
             .panel { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
-            .stat { color: #ff00ff; font-weight: bold; }
-            #logs { height: 200px; overflow-y: auto; }
-            input { background: #000; color: #00ff41; border: 1px solid #00ff41; width: 100%; padding: 10px; }
-            button { background: #00ff41; color: #000; width: 100%; padding: 10px; border: none; font-weight: bold; }
+            .nodo-activo { color: #00aaff; font-size: 0.8rem; }
         </style>
     </head>
     <body>
         <h2>AMITI OMEGA NÚCLEO</h2>
         <div class="panel">
-            Integridad: {{ESTADO.integridad}}% | Modo: {{ESTADO.modo}}<br>
-            Clientes en línea: <span class="stat">{{ESTADO.clientes_en_linea}}</span>
+            <strong>TELEMETRÍA DE COMPORTAMIENTO:</strong><br>
+            {% for id, hora in RED.clientes.items() %}
+                <div class="nodo-activo">> NODO {{id[-4:]}} - ÚLTIMA ACCIÓN: {{hora}}</div>
+            {% endfor %}
         </div>
         <div class="panel" id="logs">
-            {% for log in ESTADO.logs %}
+            {% for log in RED.logs %}
                 <p style="color:{{log.c}}">[{{log.t}}] {{log.m}}</p>
             {% endfor %}
         </div>
         <form method="POST">
-            <input type="text" name="comando" placeholder="Comando..." required>
-            <button type="submit">EJECUTAR</button>
+            <input type="text" name="comando" style="width:100%; background:#000; color:#00ff41; border:1px solid #00ff41; padding:10px;" name="comando" placeholder="Emitir señal a red...">
+            <button style="width:100%; background:#00ff41; border:none; padding:10px; font-weight:bold; margin-top:5px;">TRANSMITIR</button>
         </form>
     </body>
     </html>
-    """, ESTADO=ESTADO)
+    """, RED=RED)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
