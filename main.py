@@ -1,24 +1,18 @@
-# main.py - El Casco Central
-import time, threading
-from flask import Flask
-import modulo_memoria as cerebro 
+# main.py - El Orquestador Maestro
+import sqlite3
+# Importamos lógica modular (puedes tenerlas en funciones dentro del mismo archivo)
+from logica_amiti import procesar_IA, gestionar_memoria, ejecutar_comando
 
-app = Flask(__name__)
-
-# AMITI despierta en un hilo separado para poder hablarte por iniciativa propia
-def bucle_autonomo():
-    while True:
-        time.sleep(60) # AMITI piensa cada minuto
-        if cerebro.necesita_saludar():
-            cerebro.enviar_saludo_iniciativa()
-
-# Iniciar el hilo de pensamiento paralelo
-threading.Thread(target=bucle_autonomo, daemon=True).start()
-
-@app.route('/')
-def index():
-    return "NUCLEO CENTRAL ONLINE - CASCO ACTIVO"
-
-if __name__ == "__main__":
-    app.run(port=10000)
+@app.route('/', methods=['POST'])
+def handle():
+    mensaje = request.form.get("msg")
+    # 1. AMITI intenta ejecutar un comando
+    respuesta = ejecutar_comando(mensaje)
+    if not respuesta:
+        # 2. Si no es comando, AMITI busca en su memoria
+        respuesta = procesar_IA(mensaje)
+    
+    # 3. AMITI guarda la interacción para aprender
+    gestionar_memoria(mensaje, respuesta)
+    return render_template(respuesta)
     
