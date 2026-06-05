@@ -2,58 +2,62 @@ from flask import Flask, request, render_template_string
 import datetime
 import os
 
-# Ahora 'Flask' (con mayúscula) está definido correctamente por la importación
 app = Flask(__name__)
 
-# Memoria de estado
-ESTADO_SISTEMA = {
+# Memoria maestra expandida
+ESTADO = {
     "integridad": 100,
     "modo": "NEUTRO",
-    "logs": [{"t": "00:00", "m": "AMITI ONLINE - SISTEMA LISTO", "c": "green"}]
+    "logs": [{"t": "00:00", "m": "SISTEMA INICIALIZADO", "c": "green"}],
+    "nodos": ["NODO_ALPHA", "NODO_BETA"] # Simulación de vigilancia
 }
-
-def obtener_respuesta_ia(comando):
-    c = comando.lower()
-    if "hola" in c: return "Saludos, Creador. Operativa al 100%."
-    if "cómo estás" in c: return "Operativa y protegiendo tus archivos, Creador."
-    if "evolución" in c: return "Evolución iniciada. Optimizando protocolos."
-    return f"Consulta '{comando}' registrada en la red global."
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         comando = request.form.get("comando")
         if comando:
-            respuesta = obtener_respuesta_ia(comando)
-            ESTADO_SISTEMA["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"Yo: {comando}", "c": "green"})
-            ESTADO_SISTEMA["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"AMITI: {respuesta}", "c": "blue"})
-            if len(ESTADO_SISTEMA["logs"]) > 10: ESTADO_SISTEMA["logs"].pop(0)
-    
+            ESTADO["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"Yo: {comando}", "c": "green"})
+            ESTADO["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "AMITI: Procesando vigilancia...", "c": "blue"})
+            if len(ESTADO["logs"]) > 15: ESTADO["logs"].pop(0)
+            
     return render_template_string("""
     <!DOCTYPE html>
     <html>
-    <head><style>
-        body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 15px; }
-        .box { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
-        input { background: #000; color: #00ff41; border: 1px solid #00ff41; width: 70%; padding: 5px; }
-        button { background: #00ff41; color: #000; border: none; padding: 5px; }
-        .blue { color: #00aaff; } .green { color: #00ff41; }
-    </style></head>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; margin: 0; padding: 10px; }
+            .container { display: flex; flex-direction: column; height: 95vh; }
+            .panel { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; flex-grow: 1; overflow-y: auto; }
+            h2 { margin: 0; font-size: 1.2rem; border-bottom: 1px solid #00ff41; }
+            input { background: #000; color: #00ff41; border: 1px solid #00ff41; width: 100%; padding: 10px; box-sizing: border-box; }
+            button { background: #00ff41; color: #000; width: 100%; padding: 10px; border: none; font-weight: bold; margin-top: 5px; }
+            .node { color: #ff00ff; font-size: 0.8rem; }
+        </style>
+    </head>
     <body>
-        <h2>AMITI NÚCLEO: CENTRO DE MANDO</h2>
-        <div class="box">Estado: {{ESTADO.modo}} | Integridad: {{ESTADO.integridad}}%</div>
-        <div class="box" style="height: 250px; overflow-y: scroll;">
-            {% for log in ESTADO.logs %}
-                <p class="{{log.c}}">[{{log.t}}] {{log.m}}</p>
-            {% endfor %}
+        <div class="container">
+            <h2>AMITI OMEGA NÚCLEO</h2>
+            <div class="panel">
+                <strong>VIGILANCIA DE NODOS:</strong>
+                {% for nodo in ESTADO.nodos %}
+                    <div class="node">> {{nodo}} [ACTIVO]</div>
+                {% endfor %}
+            </div>
+            <div class="panel" id="logs">
+                {% for log in ESTADO.logs %}
+                    <p style="color:{{log.c}}">[{{log.t}}] {{log.m}}</p>
+                {% endfor %}
+            </div>
+            <form method="POST">
+                <input type="text" name="comando" placeholder="Ingresar comando táctico..." required>
+                <button type="submit">EJECUTAR</button>
+            </form>
         </div>
-        <form method="POST">
-            <input type="text" name="comando" placeholder="Comando..." required>
-            <button type="submit">Enviar</button>
-        </form>
     </body>
     </html>
-    """, ESTADO=ESTADO_SISTEMA)
+    """, ESTADO=ESTADO)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
