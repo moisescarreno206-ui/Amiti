@@ -3,9 +3,18 @@ import datetime
 
 app = Flask(__name__)
 
-# Base de datos en memoria del Núcleo
-NODOS_CONECTADOS = {} 
+# --- MEMORIA Y ESTADO ---
+NODOS_CONECTADOS = {}
 REGISTRO_ACTIVIDAD = []
+SISTEMA_ESTADO = {"integridad": "100%", "modo": "NORMAL"}
+
+def clasificar_y_colorear(texto):
+    t = texto.lower()
+    if any(x in t for x in ["cuanto es", "+", "-", "/", "*", "raiz", "potencia"]):
+        return "blue", "MATEMÁTICA"
+    if any(x in t for x in ["contabilidad", "saldo", "pago", "costo", "factura"]):
+        return "purple", "CONTABILIDAD"
+    return "#00ff41", "NORMAL"
 
 @app.route('/')
 def index():
@@ -17,27 +26,42 @@ def index():
         <style>
             body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 15px; }
             .box { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
+            .MATEMÁTICA { color: #00aaff; }
+            .CONTABILIDAD { color: #aa00ff; }
         </style>
     </head>
     <body>
-        <h2>AMITI NÚCLEO: CENTRO DE MANDO</h2>
+        <h2>NÚCLEO MAESTRO: ESTADO {{estado.modo}}</h2>
+        <div class="box">Nodos: {{len(nodos)}} | Integridad: {{estado.integridad}}</div>
         <div class="box">
-            Nodos Activos: {{ len(nodos) }}<br>
-            Último evento: {{ hora }}
-        </div>
-        <div class="box">
-            <h4>Registro de Actividad:</h4>
-            {% for act in actividad %}<p>{{ act }}</p>{% endfor %}
+            {% for act in actividad %}
+                <p class="{{act.cat}}">[{{act.time}}] {{act.msg}}</p>
+            {% endfor %}
         </div>
     </body>
     </html>
-    """, nodos=NODOS_CONECTADOS, hora=datetime.datetime.now().strftime("%H:%M:%S"), actividad=REGISTRO_ACTIVIDAD)
+    """, nodos=NODOS_CONECTADOS, actividad=REGISTRO_ACTIVIDAD, estado=SISTEMA_ESTADO)
 
 @app.route('/nodo_reporte', methods=['POST'])
 def recibir_reporte():
     data = request.json
-    nodo_id = data.get("nodo", "Desconocido")
-    NODOS_CONECTADOS[nodo_id] = datetime.datetime.now()
-    REGISTRO_ACTIVIDAD.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {nodo_id}: {data.get('data')}")
-    if len(REGISTRO_ACTIVIDAD) > 15: REGISTRO_ACTIVIDAD.pop(0)
-    return jsonify({"status": "recibido"})
+    msg = str(data.get('data', ''))
+    
+    # Comandos de Emergencia
+    if "RESET_SISTEMA" in msg:
+        REGISTRO_ACTIVIDAD.clear()
+        return jsonify({"status": "CLEAN"})
+    
+    cat = clasificar_y_colorear(msg)[1]
+    color = clasificar_y_colorear(msg)[0]
+    
+    REGISTRO_ACTIVIDAD.append({
+        "time": datetime.datetime.now().strftime("%H:%M:%S"),
+        "msg": msg,
+        "cat": cat
+    })
+    if len(REGISTRO_ACTIVIDAD) > 20: REGISTRO_ACTIVIDAD.pop(0)
+    return jsonify({"status": "OK"})
+
+if __name__ == "__main__":
+    app.run()
