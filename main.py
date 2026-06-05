@@ -1,69 +1,68 @@
 from flask import Flask, request, render_template_string
-import datetime, os, hashlib
+import datetime, hashlib
 
 app = Flask(__name__)
 
-# --- MÓDULOS DE BIBLIOTECA ---
-class Biblioteca:
-    class Asistencia:
-        @staticmethod
-        def ejecutar(msg):
-            return "ASISTENCIA: Procesando consulta '" + msg + "' en base de datos."
-
-    class Contabilidad:
-        @staticmethod
-        def ejecutar(msg):
-            # Aquí irá tu lógica de cálculo de cuentas
-            return "CONTABILIDAD: Analizando balance para: " + msg
-
-    class Monitor:
-        @staticmethod
-        def ejecutar(msg):
-            return "MONITOR: Sistema en línea. Nodos activos: 1. Integridad: 100%."
-
-# --- NÚCLEO (ORQUESTADOR) ---
-RED = {"logs": [{"t": "00:00", "m": "NUCLEO OMEGA V10: LISTO", "c": "#00ff41"}]}
+# Base de datos en memoria
+MEMORIA = {
+    "logs": [{"t": "00:00", "m": "NUCLEO OMEGA V11: SISTEMAS ONLINE", "c": "#00ff41"}],
+    "nodos": {} # {ip: contador}
+}
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    canal = request.form.get("canal", "asistencia")
-    msg = request.form.get("msg")
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    # El núcleo central no se cuenta como nodo cliente
+    es_admin = (ip == "127.0.0.1") # Ajusta según tu IP real
+    
+    if not es_admin and ip not in MEMORIA["nodos"]:
+        MEMORIA["nodos"][ip] = 0
+    
+    msg = request.form.get("msg", "").lower()
     
     if msg:
-        # Lógica de enrutamiento modular
-        if canal == "contabilidad":
-            res = Biblioteca.Contabilidad.ejecutar(msg)
-        elif canal == "monitor":
-            res = Biblioteca.Monitor.ejecutar(msg)
+        MEMORIA["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"NODO {ip[-4:]}: {msg}", "c": "#fff"})
+        
+        # Lógica de Comandos
+        if msg == "monitor":
+            res = "Estado: Servidor estable. Procesador: 12% uso. Memoria: 450MB."
+        elif msg == "seguridad":
+            res = "Seguridad: 100% OK. Sin amenazas detectadas en el servidor."
+        elif msg == "menu":
+            total_nodos = len(MEMORIA["nodos"])
+            res = f"Menu: Nodos clientes activos: {total_nodos}. El Nucleo (Soporte) está en linea."
         else:
-            res = Biblioteca.Asistencia.ejecutar(msg)
+            # IA Asistente
+            res = f"IA: He analizado tu solicitud '{msg}'. Respuesta: Procesando datos de forma autonoma."
             
-        RED["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": "AMITI: " + res, "c": "#ffffff"})
-        if len(RED["logs"]) > 5: RED["logs"].pop(0)
+        MEMORIA["logs"].append({"t": datetime.datetime.now().strftime("%H:%M"), "m": f"AMITI: {res}", "c": "#00ff41"})
+        if len(MEMORIA["logs"]) > 8: MEMORIA["logs"].pop(0)
 
     return render_template_string("""
     <!DOCTYPE html>
     <html>
-    <body style="background:#000; color:#00ff41; font-family:monospace; padding:20px;">
-        <h2>AMITI NUCLEO MAESTRO</h2>
-        <div style="border:1px solid #00ff41; padding:10px;">
-            {% for log in RED.logs %}
-                <p>{{log.m}}</p>
-            {% endfor %}
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { background: #000; color: #00ff41; font-family: monospace; margin: 0; padding: 10px; height: 100vh; display: flex; flex-direction: column; }
+            .terminal { flex-grow: 1; border: 2px solid #00ff41; padding: 10px; overflow-y: auto; margin-bottom: 10px; }
+            input { width: 100%; padding: 15px; background: #111; color: #fff; border: 2px solid #00ff41; box-sizing: border-box; font-size: 1rem; }
+            button { width: 100%; padding: 15px; background: #00ff41; border: none; font-weight: bold; margin-top: 5px; }
+        </style>
+    </head>
+    <body>
+        <h2>AMITI OMEGA V11</h2>
+        <div class="terminal">
+            {% for log in MEMORIA.logs %}<p style="color:{{log.c}}">[{{log.t}}] {{log.m}}</p>{% endfor %}
         </div>
         <form method="POST">
-            <select name="canal" style="width:100%; padding:10px; background:#111; color:#0f0;">
-                <option value="asistencia">Asistencia IA</option>
-                <option value="contabilidad">Contabilidad</option>
-                <option value="monitor">Monitor Maestro</option>
-            </select>
-            <input type="text" name="msg" style="width:100%; padding:10px;" required>
-            <button type="submit" style="width:100%; padding:10px; background:#0f0;">EJECUTAR</button>
+            <input type="text" name="msg" placeholder="Comando o consulta..." required autofocus>
+            <button type="submit">EJECUTAR</button>
         </form>
     </body>
     </html>
-    """, RED=RED)
+    """, MEMORIA=MEMORIA)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    app.run(host='0.0.0.0', port=10000)
     
