@@ -4,12 +4,12 @@ import datetime
 app = Flask(__name__)
 
 # Base de datos en memoria del Núcleo
-NODOS_CONECTADOS = {} # {id_nodo: ultima_conexion}
+NODOS_CONECTADOS = {} 
 REGISTRO_ACTIVIDAD = []
 
-# --- INTERFAZ DEL NÚCLEO (Dashboard de Monitoreo) ---
 @app.route('/')
 def index():
+    # Dashboard táctico
     return render_template_string("""
     <!DOCTYPE html>
     <html>
@@ -18,8 +18,6 @@ def index():
         <style>
             body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; padding: 15px; }
             .box { border: 1px solid #00ff41; padding: 10px; margin-bottom: 10px; }
-            textarea { width: 100%; height: 100px; background: #000; color: #00ff41; border: 1px solid #00ff41; }
-            button { background: #00ff41; color: #000; border: none; padding: 10px; width: 100%; font-weight: bold; }
         </style>
     </head>
     <body>
@@ -28,29 +26,22 @@ def index():
             Nodos Activos: {{ len(nodos) }}<br>
             Último evento: {{ hora }}
         </div>
-        <div class="box" id="log">
-            {% for act in actividad %}{{ act }}<br>{% endfor %}
+        <div class="box">
+            <h4>Registro de Actividad:</h4>
+            {% for act in actividad %}<p>{{ act }}</p>{% endfor %}
         </div>
-        <textarea id="codigo" placeholder="Pegar código de actualización..."></textarea>
-        <button onclick="enviarActualizacion()">DESPLEGAR ACTUALIZACIÓN A NODOS</button>
-        <script>
-            async function enviarActualizacion(){
-                let c = document.getElementById('codigo').value;
-                alert("Desplegando actualización a la red...");
-            }
-        </script>
     </body>
+    </html>
     """, nodos=NODOS_CONECTADOS, hora=datetime.datetime.now().strftime("%H:%M:%S"), actividad=REGISTRO_ACTIVIDAD)
 
-# --- RECEPTOR DE INFORMACIÓN DE NODOS ---
 @app.route('/nodo_reporte', methods=['POST'])
 def recibir_reporte():
     data = request.json
     nodo_id = data.get("nodo", "Desconocido")
     NODOS_CONECTADOS[nodo_id] = datetime.datetime.now()
-    REGISTRO_ACTIVIDAD.append(f"[{nodo_id}] {data.get('data')}")
-    if len(REGISTRO_ACTIVIDAD) > 10: REGISTRO_ACTIVIDAD.pop(0)
+    REGISTRO_ACTIVIDAD.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {nodo_id}: {data.get('data')}")
+    if len(REGISTRO_ACTIVIDAD) > 15: REGISTRO_ACTIVIDAD.pop(0)
     return jsonify({"status": "recibido"})
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run()
