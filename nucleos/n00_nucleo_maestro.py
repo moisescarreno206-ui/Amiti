@@ -1,27 +1,27 @@
-import hashlib
-
 class NucleoMaestro:
     def __init__(self):
-        self.bloqueado = True
-        self.log_sesion = "SISTEMA_INICIADO"
+        self.bloqueado = True  # Seguridad de acceso inicial
+        self.estado = "INACTIVO"
 
     def procesar(self, comando):
         cmd = comando.strip().lower()
         
-        # Núcleo 15: Autenticación optimizada
+        # Núcleo 15: Autenticación (Reconocimiento del Creador)
         if cmd == "amiti":
             self.bloqueado = False
-            return "ACCESO CONCEDIDO: Núcleos habilitados."
+            self.estado = "ACTIVO"
+            return "Hola, creador. En qué puedo ayudarte? Estoy lista para evolucionar."
         
+        # Validación de seguridad
         if self.bloqueado:
-            return "ERROR 403: Acceso denegado."
-            
-        # Núcleo 17: Ejecutor de misiones (Procesamiento ágil)
-        return self._ejecutar(cmd)
+            return "SISTEMA BLOQUEADO. Requiere secuencia de acceso."
+        
+        # Núcleo 17: Arquitecto de sistema
+        # Aquí AMITI gestionará la ejecución de misiones futuras
+        return self._ejecutar_mision(cmd)
 
-    def _ejecutar(self, cmd):
-        # Aquí se integrarán los otros 17 núcleos
-        return f"Ejecutando proceso: {cmd}"
+    def _ejecutar_mision(self, cmd):
+        return f"Misión '{cmd}' registrada. Los núcleos están analizando los parámetros."
 
-# Instancia centralizada (Singleton pattern)
+# Instancia central (Singleton) que mantiene el estado
 amiti = NucleoMaestro()
