@@ -1,33 +1,41 @@
-import math, time, sqlite3, os, re
+import math, re, sqlite3, time
 
 class NucleoMaestro:
     def __init__(self):
         self.bloqueado = True
-        self.db_path = "memoria_amiti.db"
+        self.db = "memoria_amiti.db"
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("CREATE TABLE IF NOT EXISTS memoria (id INTEGER PRIMARY KEY, accion TEXT)")
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY, msg TEXT)")
 
-    def procesar(self, comando):
-        cmd = comando.lower().strip()
+    def procesar(self, cmd):
+        cmd = cmd.lower().strip()
+        # Núcleo de Seguridad (Anti-hackeo)
+        if any(x in cmd for x in ["drop", "delete", "rm -rf", "script"]):
+            return "ALERTA: Ataque bloqueado. El núcleo de seguridad es infranqueable."
+        
         if cmd == "amiti": 
             self.bloqueado = False
-            return "Hola, creador. En qué puedo ayudarte? Estoy lista para evolucionar."
+            return "Núcleos activos. Operativa."
+        
         if self.bloqueado: return "SISTEMA BLOQUEADO."
-        
-        # Núcleo 07: Motor Científico (Suma, resta, raíz, etc.)
-        if any(x in cmd for x in ["+", "-", "*", "/", "raiz", "suma", "resta"]):
-            return self._ejecutar_ciencia(cmd)
-        
-        return "Misión registrada."
 
-    def _ejecutar_ciencia(self, cmd):
+        # Núcleo Matemático y Lógico
+        if any(op in cmd for op in ["+", "-", "*", "/", "raiz", "ecuacion"]):
+            return self._resolver_ciencia(cmd)
+        
+        return "Procesando en memoria..."
+
+    def _resolver_ciencia(self, cmd):
         try:
-            # Lógica extendida para cálculos
-            if "raiz" in cmd: return math.sqrt(float(re.search(r'\d+', cmd).group()))
-            return str(eval(re.sub(r'[^0-9+\-*/.]', '', cmd)))
+            if "raiz" in cmd:
+                num = float(re.search(r'\d+', cmd).group())
+                return f"Resultado: {math.sqrt(num)}"
+            # Ejecución segura de cálculo
+            clean = re.sub(r'[^0-9+\-*/.]', '', cmd)
+            return f"Resultado: {eval(clean)}"
         except: return "Error en núcleo lógico."
 
 amiti = NucleoMaestro()
