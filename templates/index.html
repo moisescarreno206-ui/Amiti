@@ -1,11 +1,10 @@
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
+<div class="amiti-loader">
+    <span id="contador">0</span>
+</div>
 <script>
-    // Esto hace que el navegador te pregunte si quieres "instalar" AMITI
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        // Aquí podrías mostrar un botón de "INSTALAR AMITI"
-    });
+    // Contador de minutos de inteligencia
+    setInterval(() => {
+        let mins = Math.floor((new Date() - startTime) / 60000);
+        document.getElementById('contador').innerText = mins;
+    }, 10000);
 </script>
