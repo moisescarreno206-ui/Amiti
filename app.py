@@ -1,13 +1,35 @@
 # app.py
 import os
+import sys
 from flask import Flask, request, jsonify, render_template_string
 
-# IMPORTANTE: Aquí importamos tu clase de la carpeta "nucleos"
-from nucleos.amiti_os import AmitiOS
+# ⚙️ PARCHE DE RUTAS: Obliga a Python a buscar carpetas dentro del directorio del script.
+# Esto previene el 99% de los fallos de importación en celulares y servidores.
+ruta_proyecto = os.path.dirname(os.path.abspath(__file__))
+if ruta_proyecto not in sys.path:
+    sys.path.insert(0, ruta_proyecto)
+
+# 🧠 IMPORTACIÓN INTELIGENTE DE AMITI
+try:
+    # Intento 1: Importar desde carpeta sin tilde (Recomendado para Render)
+    from nucleos.amiti_os import AmitiOS
+except ModuleNotFoundError:
+    try:
+        # Intento 2: Respaldo por si tu carpeta en el celular tiene tilde
+        from núcleos.amiti_os import AmitiOS
+    except ModuleNotFoundError as e:
+        print("\n[!] ERROR CRÍTICO: No se pudo encontrar la carpeta de los núcleos.")
+        print("Asegúrate de que tu estructura de archivos sea exactamente así:")
+        print("mi_proyecto/")
+        print("  ├── app.py")
+        print("  └── nucleos/ (o núcleos/)")
+        print("        ├── __init__.py")
+        print("        └── amiti_os.py\n")
+        raise e
 
 app = Flask(__name__)
 
-# Instanciamos el cerebro que acabamos de importar
+# Instanciamos el cerebro que acabamos de importar de forma segura
 amiti_system = AmitiOS()
 
 @app.route("/")
