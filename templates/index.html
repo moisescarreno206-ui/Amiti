@@ -1,40 +1,11 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMITI-CORE</title>
-    <style>
-        body { background:#000; color:#00f2ff; font-family:'Courier New', monospace; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; }
-        .amiti-loader { width: 120px; height: 120px; border: 6px solid #00f2ff; border-top: 6px solid transparent; border-radius: 50%; animation: spin 1.5s linear infinite; margin-bottom: 30px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #input-area { width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
-        input { background:#111; color:#00f2ff; border:2px solid #00f2ff; padding: 15px; font-size: 1.2rem; text-align: center; }
-        button { background:#00f2ff; color:#000; border:none; padding: 15px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
-        #respuesta { margin-top: 25px; font-size: 1.3rem; text-align: center; color: #fff; text-shadow: 0 0 10px #00f2ff; max-width: 90%; }
-    </style>
-</head>
-<body>
-    <div class="amiti-loader"></div>
-    <div id="input-area">
-        <input type="text" id="cmd" placeholder="Llave de seguridad...">
-        <button onclick="enviar()">EJECUTAR COMANDO</button>
-    </div>
-    <div id="respuesta"></div>
-    <script>
-        async function enviar(){
-            let campo = document.getElementById('cmd');
-            let resDiv = document.getElementById('respuesta');
-            let c = campo.value;
-            campo.value = ""; // Limpiar envío
-            let r = await fetch('/procesar', {
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({comando:c})
-            });
-            let d = await r.json();
-            resDiv.innerText = d.respuesta;
-        }
-    </script>
-</body>
-</html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<script>
+    // Esto hace que el navegador te pregunte si quieres "instalar" AMITI
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Aquí podrías mostrar un botón de "INSTALAR AMITI"
+    });
+</script>
