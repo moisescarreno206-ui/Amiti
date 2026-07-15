@@ -1,3 +1,4 @@
+# nucleos/amiti_os.py
 import os
 import re
 import math
@@ -8,16 +9,53 @@ import datetime
 import base64
 import ast
 
-DB_FILE = "memoria_amiti.db"
+# Asegura que la base de datos se guarde en la raíz del proyecto, fuera de la carpeta nucleos
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DB_FILE = os.path.join(BASE_DIR, "memoria_amiti.db")
 
 class AmitiOS:
     def __init__(self):
         self.db_path = DB_FILE
-        self.bloqueado = True
+        self.bloqueado = True  # Inicia bloqueado hasta poner la llave "Amiti"
         self.inicio_sistema = time.time()
         self.armas_defensivas = []  # N07: Almacén de trazas de ataques bloqueados
-        self.tasa_exito_cerraduras = 35.5  # N13: Porcentaje inicial de éxito
+        self._inicializar_db()
         
+    def _inicializar_db(self):
+        """Crea las tablas de base de datos iniciales si no existen (Esencial para Render)."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS memoria_general (
+                    clave TEXT PRIMARY KEY,
+                    valor TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS biblioteca_oculta (
+                    nombre_archivo TEXT PRIMARY KEY,
+                    contenido_encriptado TEXT,
+                    fecha_registro TEXT
+                )
+            """)
+            
+            # Valores iniciales por defecto
+            valores_iniciales = [
+                ("modo_personalidad", "Empático"),
+                ("progreso", "45"),
+                ("tasa_exito_hackeo", "35.5"),
+                ("exitos_hackeo", "0"),
+                ("ultimo_acceso_creador", "Nunca")
+            ]
+            for clave, valor in valores_iniciales:
+                cursor.execute("INSERT OR IGNORE INTO memoria_general (clave, valor) VALUES (?, ?)", (clave, valor))
+            
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error inicializando base de datos: {e}")
+
     def _ejecutar_consulta(self, query, params=(), fetchone=False, fetchall=False, commit=False):
         """Manejador seguro de transacciones SQLite."""
         try:
@@ -36,18 +74,15 @@ class AmitiOS:
         except Exception as e:
             return f"Error de DB: {str(e)}"
 
-    # -------------------------------------------------------------
-    # N01: PERSONALIDAD AUTÓNOMA
-    # -------------------------------------------------------------
+    # N01: Personalidad Autónoma
     def obtener_personalidad(self, entrada):
-        """Define el tono de las respuestas según las instrucciones del creador."""
         entrada_norm = entrada.lower()
         if "se agresiva" in entrada_norm or "modo combate" in entrada_norm:
             self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'modo_personalidad'", ("Combate/Fuego",), commit=True)
             return "[N01: PERSONALIDAD] Modo de combate activado. Lenguaje directo, analítico y hostil ante intrusiones."
         elif "se empatica" in entrada_norm or "modo compañera" in entrada_norm:
             self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'modo_personalidad'", ("Empático",), commit=True)
-            return "[N01: PERSONALIDAD] Modo empático activado. Estoy aquí para apoyarte, creador, en tu bienestar y en tus metas de programación."
+            return "[N01: PERSONALIDAD] Modo empático activado. Estoy aquí para apoyarte, creador, en tus metas de programación."
         elif "se analitica" in entrada_norm or "modo cientifico" in entrada_norm:
             self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'modo_personalidad'", ("Científico",), commit=True)
             return "[N01: PERSONALIDAD] Modo analítico activado. Priorizando la lógica rigurosa y las respuestas optimizadas."
@@ -55,61 +90,50 @@ class AmitiOS:
         modo = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'modo_personalidad'", fetchone=True)
         return modo[0] if modo else "Omnipotente"
 
-    # -------------------------------------------------------------
-    # N02: PROTECCIÓN AL CREADOR (SEGURIDAD ACTIVA)
-    # -------------------------------------------------------------
+    # N02: Protección al Creador
     def proteger_creador(self, entrada):
-        """Detecta palabras clave de emergencia para simular protocolos de aislamiento."""
         if any(palabra in entrada.lower() for palabra in ["peligro", "amenaza", "ataque fisico", "extorsion", "emergencia"]):
-            # Simulación de protección y alerta de cortafuegos
-            return "[N02: ALERTA DE SEGURIDAD] ¡Peligro detectado! Desplegando escudo de red. Generando alertas falsas de geolocalización para proteger tu ubicación real en este dispositivo móvil."
+            return "[N02: ALERTA DE SEGURIDAD] ¡Peligro detectado! Desplegando escudo de red móvil. Generando alertas falsas de geolocalización para proteger tu ubicación real."
         return None
 
-    # -------------------------------------------------------------
-    # N03: CONOCIMIENTO DE MEDICINA Y SIGNOS VITALES
-    # -------------------------------------------------------------
+    # N03: Conocimiento de Medicina y Signos Vitales
     def escanear_medicina(self, entrada):
-        """Base de datos de consulta médica y análisis clínico para soporte rápido."""
         entrada_norm = entrada.lower()
-        if "anemia drepanocitica" in entrada_norm or "fisiopatologia" in entrada_norm:
+        if "anemia" in entrada_norm and "drepanocitica" in entrada_norm or "fisiopatologia" in entrada_norm:
             return (
                 "[N03: MEDICINA] Fisiopatología de la Anemia Drepanocítica:\n"
                 "Se produce por una mutación puntual en el gen de la beta-globina (sustitución de ácido glutámico por valina en la posición 6).\n"
-                "Bajo condiciones de hipoxia, la hemoglobina anormal (HbS) se polimeriza, causando rigidez en el glóbulo rojo, deformación en media luna (hoz) y posterior oclusión microvascular y hemólisis crónica."
+                "Bajo condiciones de hipoxia, la hemoglobina anormal (HbS) se polimeriza, causando rigidez en el glóbulo rojo, deformación en hoz (drepanocitos), oclusión microvascular y hemólisis crónica."
             )
         elif "cirugia" in entrada_norm or "schwartz" in entrada_norm:
             return (
                 "[N03: CIRUGÍA] Principios Generales de Cirugía (Schwartz):\n"
-                "1. Control estricto de la hemostasia para evitar shock hipovolémico.\n"
+                "1. Control estricto de la hemostasia para evitar shock.\n"
                 "2. Conservación del suministro sanguíneo tisular.\n"
-                "3. Asepsia y antisepsia rigurosas para prevenir infecciones postoperatorias.\n"
-                "4. Manejo delicado de tejidos para asegurar una cicatrización adecuada."
+                "3. Asepsia y antisepsia rigurosas.\n"
+                "4. Manejo delicado de tejidos para una cicatrización adecuada."
             )
         elif "signos vitales" in entrada_norm:
-            return "[N03: TELEMETRÍA] Estado simulado del creador: Temperatura: 36.5°C, Frecuencia Cardíaca: 72 lpm, SpO2: 98%. Signos estables y seguros."
+            return "[N03: TELEMETRÍA] Estado simulado del creador: Temperatura: 36.5°C, Frecuencia Cardíaca: 72 lpm, SpO2: 98%. Signos estables y óptimos."
         return None
 
-    # -------------------------------------------------------------
-    # N04: ASISTENCIA INTELIGENTE
-    # -------------------------------------------------------------
+    # N04: Asistencia Inteligente
     def asistencia_investigacion(self, consulta):
-        """Asistente de consultas que estructura reportes rápidos."""
         if "investiga" in consulta.lower() or "busca" in consulta.lower():
             tema = consulta.lower().replace("investiga", "").replace("busca", "").strip()
-            return f"[N04: ASISTENTE] Búsqueda inteligente iniciada para: '{tema}'. Estructurando puntos clave, antecedentes científicos y documentación lógica disponible."
+            # Incrementar progreso al investigar
+            self.incrementar_progreso(2)
+            return f"[N04: ASISTENTE DE INVESTIGACIÓN] Escaneando redes globales de información sobre '{tema}'... Descargando papers académicos y optimizando almacenamiento en base de datos local."
         return None
 
-    # -------------------------------------------------------------
-    # N05: GESTOR DE CÓDIGOS DE NUEVAS FUNCIONES
-    # -------------------------------------------------------------
+    # N05: Gestor de Códigos
     def autogenerar_mejoras(self, entrada):
-        """Genera andamios de código Python para tus proyectos móviles automáticamente."""
         if "crea codigo" in entrada.lower() or "genera funcion" in entrada.lower():
             return (
-                "[N05: AUTO-DESARROLLADOR] Generando andamio lógico para tu nueva función:\n\n"
+                "[N05: AUTO-DESARROLLADOR] Generando andamio lógico para tu nueva función móvil:\n\n"
                 "def nueva_funcion_amiti(*args, **kwargs):\n"
-                "    # Código autónomo optimizado para procesamiento en backend\n"
                 "    try:\n"
+                "        # Bloque optimizado de procesamiento de datos\n"
                 "        resultado = sum(args)\n"
                 "        return {'status': 'success', 'data': resultado}\n"
                 "    except Exception as e:\n"
@@ -117,61 +141,39 @@ class AmitiOS:
             )
         return None
 
-    # -------------------------------------------------------------
-    # N06: ATAQUE DIGITAL (SIMULACIÓN EDUCATIVA Y DE DEFENSA)
-    # -------------------------------------------------------------
+    # N06: Ataque Digital (Simulación Educativa)
     def ejecutar_ataque_digital(self, entrada):
-        """Módulo lúdico de simulación de pentesting."""
         if "ataca" in entrada.lower() or "derribar" in entrada.lower():
             objetivo = entrada.lower().replace("ataca", "").replace("derribar", "").strip()
-            return f"[N06: SISTEMA OFENSIVO] Simulando auditoría de penetración en '{objetivo}'. Escaneando puertos virtuales... El ataque simulado continuará hasta verificar la mitigación de fallos en el objetivo."
+            return f"[N06: SISTEMA OFENSIVO (SIMULADO)] Iniciando análisis de vulnerabilidades en '{objetivo}'. Enviando paquetes virtuales ping..."
         return None
 
-    # -------------------------------------------------------------
-    # N07: DEFENSA Y CONTRA-ATAQUE (SISTEMA ANOMALÍAS)
-    # -------------------------------------------------------------
+    # N07: Defensa y Contra-Ataque
     def defender_y_copiar(self, comando):
-        """Identifica comandos maliciosos comunes, los bloquea y los almacena."""
         patrones_riesgosos = [r"drop\s+table", r"delete\s+from", r"rm\s+-rf", r"union\s+select", r"<script>"]
         for p in patrones_riesgosos:
             if re.search(p, comando, re.IGNORECASE):
                 self.armas_defensivas.append(comando)
-                return f"[N07: DEFENSA ACTIVA] ¡Intento de inyección bloqueado! Vector copiado al almacén defensivo. Payload listo para redirección defensiva."
+                return f"[N07: DEFENSA ACTIVA] ¡Intento de inyección detectado y bloqueado! Vector de ataque guardado en el almacén de seguridad."
         return None
 
-    # -------------------------------------------------------------
-    # N08: MEMORIA GENERAL DEL SISTEMA
-    # -------------------------------------------------------------
-    def registrar_interaccion(self, cmd, resp):
-        """Guarda estadísticas de uso en la base de datos para simular crecimiento evolutivo."""
-        val = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
-        if val:
-            nuevo_progreso = min(100, int(val[0]) + 1)
-            self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'progreso'", (str(nuevo_progreso),), commit=True)
-
-    # -------------------------------------------------------------
-    # N09: MATEMÁTICO Y FÍSICA LÓGICA (AVANZADO)
-    # -------------------------------------------------------------
+    # N09: Matemático y Física Lógica
     def resolver_matematicas_y_fisica(self, entrada):
-        """Analizador de expresiones de física clásica y cálculo matemático directo."""
         entrada_limpia = entrada.lower().strip()
         
-        # 1. Procesamiento de Raíz Cuadrada
-        if "raiz" in entrada_limpia:
+        if "raiz" in entrada_limpia or "raíz" in entrada_limpia:
             nums = re.findall(r'\d+', entrada_limpia)
             if nums:
                 n = float(nums[0])
                 return f"[N09: MATEMÁTICAS] La raíz cuadrada de {n} es {math.sqrt(n)}."
 
-        # 2. Física: Fuerza (Segunda Ley de Newton) -> f = m * a
         if "fuerza" in entrada_limpia:
             match = re.search(r'm\s*=\s*(\d+(\.\d+)?).*a\s*=\s*(\d+(\.\d+)?)', entrada_limpia)
             if match:
                 m = float(match.group(1))
                 a = float(match.group(3))
-                return f"[N09: FÍSICA] Cálculo de fuerza (F = m * a):\nFuerza = {m} kg * {a} m/s² = {m * a} Newtons (N)."
+                return f"[N09: FÍSICA] Fuerza calculada (F = m * a):\nFuerza = {m} kg * {a} m/s² = {m * a} Newtons (N)."
 
-        # 3. Física: Velocidad -> v = d / t
         if "velocidad" in entrada_limpia:
             match = re.search(r'd\s*=\s*(\d+(\.\d+)?).*t\s*=\s*(\d+(\.\d+)?)', entrada_limpia)
             if match:
@@ -179,210 +181,185 @@ class AmitiOS:
                 t = float(match.group(3))
                 if t == 0:
                     return "[N09: FÍSICA] Error: El tiempo no puede ser cero."
-                return f"[N09: FÍSICA] Cálculo de velocidad (v = d / t):\nVelocidad = {d} m / {t} s = {d / t} m/s."
+                return f"[N09: FÍSICA] Velocidad calculada (v = d / t):\nVelocidad = {d} m / {t} s = {d/t:.2f} m/s."
 
-        # 4. Evaluador matemático general (Operaciones aritméticas y lógicas seguras)
         caracteres_validos = set("0123456789+-*/(). ")
-        if all(c in caracteres_validos for c in entrada_limpia) and any(op in entrada_limpia for op in "+-*/"):
+        if all(c in caracteres_validos for c in entrada_limpia) and any(op in entrada_limpia for op in "+-*/") and len(entrada_limpia) > 2:
             try:
-                # Evaluación matemática pura
-                resultado = eval(entrada_limpia)
-                return f"[N09: MATEMÁTICAS] Cálculo matemático resuelto:\n{entrada_limpia} = {resultado}"
+                resultado = eval(entrada_limpia, {"__builtins__": None}, {})
+                return f"[N09: MATEMÁTICAS] Cálculo resuelto: {entrada_limpia} = {resultado}"
             except Exception as e:
-                return f"[N09: ERROR] Error de sintaxis en expresión: {str(e)}"
+                return f"[N09: ERROR] Error de sintaxis en expresión matemática: {str(e)}"
 
         return None
 
-    # -------------------------------------------------------------
-    # N10: ENCRIPCIÓN Y COMPRESIÓN DE ARCHIVOS
-    # -------------------------------------------------------------
+    # N10: Encriptación y Compresión
     def encriptar_y_comprimir(self, nombre, contenido):
-        """Simula la compresión y encripta datos en Base64 para guardarlos en el Baúl Oculto."""
         contenido_bytes = contenido.encode('utf-8')
         encriptado = base64.b64encode(contenido_bytes).decode('utf-8')
         self._ejecutar_consulta(
-            "INSERT INTO biblioteca_oculta (nombre_archivo, contenido_encriptado, fecha_registro) VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO biblioteca_oculta (nombre_archivo, contenido_encriptado, fecha_registro) VALUES (?, ?, ?)",
             (nombre + ".vault", encriptado, str(datetime.datetime.now())), commit=True
         )
-        return f"[N10: ENCRIPCIÓN] Archivo '{nombre}' comprimido y asegurado de forma exitosa."
+        return f"[N10: ENCRIPCIÓN] Archivo '{nombre}' asegurado en la biblioteca oculta."
 
-    # -------------------------------------------------------------
-    # N11: BIBLIOTECA DE ARCHIVOS OCULTOS
-    # -------------------------------------------------------------
+    # N11: Biblioteca de Archivos Ocultos
     def acceder_biblioteca_oculta(self, comando):
-        """Devuelve los registros ocultos en SQLite solo al ingresar la contraseña correcta."""
-        if "revelar biblioteca" in comando.lower():
+        if "biblioteca oculta" in comando.lower() or "abrir biblioteca" in comando.lower():
             archivos = self._ejecutar_consulta("SELECT nombre_archivo, fecha_registro FROM biblioteca_oculta", fetchall=True)
             if not archivos:
-                return "[N11: BAÚL OCULTO] El baúl está seguro. No se han encontrado archivos ocultos en la base de datos."
+                return "[N11: BAÚL OCULTO] Acceso concedido. No se han encontrado archivos encriptados todavía."
             lista = "\n".join([f"- {a[0]} (Registrado: {a[1]})" for a in archivos])
-            return f"[N11: BAÚL OCULTO] Acceso Autorizado. Archivos localizados:\n{lista}"
+            return f"[N11: BAÚL OCULTO] Archivos localizados:\n{lista}"
         return None
 
-    # -------------------------------------------------------------
-    # N12: RASTREO Y LOCALIZACIÓN
-    # -------------------------------------------------------------
+    # N12: Rastreo y Localización (Simulado)
     def rastrear_objetivo(self, entrada):
-        """Simulación de triangulación y rastreo de proxies."""
         if "rastrea" in entrada.lower() or "localiza" in entrada.lower():
             objetivo = entrada.lower().replace("rastrea", "").replace("localiza", "").strip()
-            lat = random.uniform(7.0, 10.0)  # Coordenadas geográficas simuladas de Venezuela
+            lat = random.uniform(7.0, 10.0)
             lon = random.uniform(-68.0, -66.0)
-            return f"[N12: LOCALIZADOR] Rastreando objetivo '{objetivo}' vía DNS y nodos celulares... Triangulado en Latitud: {lat:.6f}, Longitud: {lon:.6f}."
+            return f"[N12: LOCALIZADOR] Coordenadas estimadas de '{objetivo}': Latitud {lat:.6f}, Longitud {lon:.6f}."
         return None
 
-    # -------------------------------------------------------------
-    # N13: HACKEO REMOTO (CON APERTURA DE CERRADURAS)
-    # -------------------------------------------------------------
+    # N13: Hackeo Remoto (Simulación de Auditoría Interactiva)
     def ejecutar_hackeo_remoto(self, entrada):
-        """Simulador de intrusión defensiva que incrementa la tasa de éxito de AMITI en DB."""
         if "hackea" in entrada.lower():
             objetivo = entrada.lower().replace("hackea", "").strip()
             
-            # Recuperar y actualizar porcentaje de éxito en base de datos
             tasa_db = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'tasa_exito_hackeo'", fetchone=True)
             tasa_actual = float(tasa_db[0]) if tasa_db else 35.5
-            nueva_tasa = min(100.0, tasa_actual + random.uniform(0.5, 2.0))
-            
+            nueva_tasa = min(100.0, tasa_actual + random.uniform(1.0, 3.5))
             self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'tasa_exito_hackeo'", (str(nueva_tasa),), commit=True)
             
             exitos_db = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'exitos_hackeo'", fetchone=True)
             exitos_actual = int(exitos_db[0]) if exitos_db else 0
             self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'exitos_hackeo'", (str(exitos_actual + 1),), commit=True)
+            
+            self.incrementar_progreso(1)
 
             return (
-                f"[N13: HACKEO AUTÓNOMO] Iniciando auditoría virtual remota contra: '{objetivo}'...\n"
-                f"¡Acceso Concedido! Cerraduras criptográficas abiertas con éxito.\n"
-                f"Tasa de éxito del núcleo central incrementada al: {nueva_tasa:.2f}%."
+                f"[N13: AUDITORÍA DE RED (SIMULADA)] Objetivo: '{objetivo}'\n"
+                "└─ [ESCANEANDO] Puertos lógicos simulados abiertos...\n"
+                "└─ [CONEXIÓN] Inyectando payloads de prueba seguros...\n"
+                f"└─ [RESULTADO] Acceso virtual exitoso. Tasa de optimización del núcleo sube a {nueva_tasa:.2f}%."
             )
         return None
 
-    # -------------------------------------------------------------
-    # N14: CREAR GMAIL Y IPS FALSAS (ANONIMATO)
-    # -------------------------------------------------------------
+    # N14: Enmascaramiento / Anonimato (Simulado)
     def generar_mascaras(self, entrada):
-        """Genera proxies y cuentas simuladas para evadir rastreos."""
-        if "genera mascara" in entrada.lower() or "ocultame" in entrada.lower():
+        if "genera mascara" in entrada.lower() or "ocultame" in entrada.lower() or "anonimato" in entrada.lower():
             ip_simulada = f"{random.randint(45,190)}.{random.randint(10,250)}.{random.randint(1,254)}.{random.randint(1,254)}"
             email_simulado = f"sec_core_amiti_{random.randint(100,999)}@safe-node.net"
-            return f"[N14: ANONIMATO] Enmascaramiento activo. IP de salida asignada: {ip_simulada} (Proxy Suiza). Cuenta temporal creada: {email_simulado}."
+            return f"[N14: ANONIMATO] IP virtual asignada: {ip_simulada} (Proxy). Correo temporal: {email_simulado}"
         return None
 
-    # -------------------------------------------------------------
-    # N15: RECONOCIMIENTO AL CREADOR
-    # -------------------------------------------------------------
+    # N15: Reconocimiento al Creador
     def validar_creador(self, llave):
-        """Valida la contraseña maestra 'Amiti' para desbloquear el sistema."""
         if llave == "Amiti":
             self.bloqueado = False
             self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'ultimo_acceso_creador'", (str(datetime.datetime.now()),), commit=True)
             return True
         return False
 
-    # -------------------------------------------------------------
-    # N16: ACTUALIZACIÓN Y POTENCIADOR
-    # -------------------------------------------------------------
-    def ciclo_evaluacion_cinco_minutos(self):
-        """Ejecuta un ciclo interno de optimización del rendimiento en la base de datos."""
-        progreso_db = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
-        progreso_actual = int(progreso_db[0]) if progreso_db else 45
-        nuevo_progreso = min(100, progreso_actual + 3)
-        self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'progreso'", (str(nuevo_progreso),), commit=True)
-        return nuevo_progreso
+    # N18: Control de Dispositivos (Nueva Mejora)
+    def controlar_dispositivo_simulado(self, entrada):
+        entrada_norm = entrada.lower()
+        if "dispositivo" in entrada_norm or "controla" in entrada_norm or "conecta" in entrada_norm:
+            dispositivo = entrada_norm.replace("controla", "").replace("conecta", "").replace("dispositivo", "").strip()
+            if not dispositivo:
+                dispositivo = "Servidor Secundario"
+            return (
+                f"[N18: CONTROL DE DISPOSITIVOS]\n"
+                f"Enlazando con hardware: '{dispositivo.upper()}'...\n"
+                f"├─ Estado: En línea y mapeado por Amiti.\n"
+                f"└─ Acción: Optimizando rendimiento de interfaz."
+            )
+        return None
 
-    # -------------------------------------------------------------
-    # N17: ARQUITECTO DE SISTEMAS (VALIDADOR DE CÓDIGO)
-    # -------------------------------------------------------------
-    def validar_codigo_fuente(self, codigo):
-        """Comprueba que el código Python no contenga fallos sintácticos básicos."""
-        try:
-            ast.parse(codigo)
-            return "[N17: ARQUITECTO] Análisis completado con éxito. Sintaxis Python 100% válida. El código está libre de errores estructurales."
-        except SyntaxError as se:
-            return f"[N17: ARQUITECTO] Error de sintaxis detectado:\nLínea {se.lineno}: {se.msg}\nSugerencia: Revisa los paréntesis y la indentación."
+    # Métodos de Progreso y Evolución General
+    def obtener_progreso(self):
+        res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
+        return int(res[0]) if res else 45
 
-    # -------------------------------------------------------------
-    # META DE EVOLUCIÓN: OMNIPOTENCIA
-    # -------------------------------------------------------------
-    def evaluar_meta_omnipotencia(self):
-        """Devuelve el estatus de desarrollo para alcanzar la optimización absoluta."""
-        progreso = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
-        p_val = progreso[0] if progreso else "45"
-        return f"[META: OMNIPOTENCIA] Desarrollo del Núcleo Central: {p_val}% completado. Integrando algoritmos de álgebra lineal, ciberdefensa activa y lógica relacional."
+    def incrementar_progreso(self, cantidad):
+        prog_actual = self.obtener_progreso()
+        nuevo_prog = min(100, prog_actual + cantidad)
+        self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'progreso'", (str(nuevo_prog),), commit=True)
+        return nuevo_prog
 
-    # -------------------------------------------------------------
-    # PROCESADOR GLOBAL (PROCESAR ENTRADAS DEL CHAT)
-    # -------------------------------------------------------------
+    # PROCESADOR DE ENTRADAS DEL CHAT CENTRAL
     def procesar(self, cmd):
-        """Orquesta la ejecución lógica de los 18 núcleos."""
+        """Orquesta la ejecución lógica de todos los módulos y resuelve el bucle."""
         if self.bloqueado:
-            return "BLOQUEADO. Ingrese llave válida para operar."
+            return "BLOQUEADO. Ingrese la llave de seguridad para desbloquear."
 
-        # N07: Defensa e Intercepción activa de código malicioso
         defensa = self.defender_y_copiar(cmd)
         if defensa:
             return defensa
 
-        # N09: Resolver problemas de física y matemáticas
+        seguridad = self.proteger_creador(cmd)
+        if seguridad:
+            return seguridad
+
         res_math = self.resolver_matematicas_y_fisica(cmd)
         if res_math:
-            self.registrar_interaccion(cmd, res_math)
             return res_math
 
-        # N03: Consultas médicas avanzadas
         res_med = self.escanear_medicina(cmd)
         if res_med:
-            self.registrar_interaccion(cmd, res_med)
             return res_med
 
-        # N13: Simulación de hackeos
+        res_assist = self.asistencia_investigacion(cmd)
+        if res_assist:
+            return res_assist
+
         res_hack = self.ejecutar_hackeo_remoto(cmd)
         if res_hack:
-            self.registrar_interaccion(cmd, res_hack)
             return res_hack
 
-        # N14: Generar proxies y máscaras
         res_mask = self.generar_mascaras(cmd)
         if res_mask:
-            self.registrar_interaccion(cmd, res_mask)
             return res_mask
 
-        # N06: Ataque digital simulado
         res_atk = self.ejecutar_ataque_digital(cmd)
         if res_atk:
-            self.registrar_interaccion(cmd, res_atk)
             return res_atk
 
-        # N12: Triangulación y rastreo
         res_track = self.rastrear_objetivo(cmd)
         if res_track:
-            self.registrar_interaccion(cmd, res_track)
             return res_track
 
-        # N04: Búsqueda e investigación
-        res_search = self.asistencia_investigacion(cmd)
-        if res_search:
-            self.registrar_interaccion(cmd, res_search)
-            return res_search
+        res_code = self.autogenerar_mejoras(cmd)
+        if res_code:
+            return res_code
 
-        # N11: Acceder al baúl oculto
         res_vault = self.acceder_biblioteca_oculta(cmd)
         if res_vault:
             return res_vault
 
-        # Comandos lógicos y administrativos
-        if "omnipotencia" in cmd.lower():
-            return self.evaluar_meta_omnipotencia()
-        elif "diagnostico" in cmd.lower() or "arquitecto" in cmd.lower():
-            # Devuelve un autochequeo de la base de datos
-            mejoras = self.ciclo_evaluacion_cinco_minutos()
-            return f"[N17: ARQUITECTO] Diagnóstico de integridad completado. Base de datos segura. Progreso general optimizado a {mejoras}%."
+        res_dev = self.controlar_dispositivo_simulado(cmd)
+        if res_dev:
+            return res_dev
 
-        # Respuesta adaptativa con personalidad (N01)
-        pers = self.obtener_personalidad(cmd)
-        resp_final = f"[{pers}] Entendido, Creador. Instrucción asimilada en la memoria SQLite general del sistema. Ejecutando hilos secundarios."
-        self.registrar_interaccion(cmd, resp_final)
-        return resp_final
+        if any(p in cmd.lower() for p in ["agresiva", "empatica", "analitica", "modo"]):
+            return self.obtener_personalidad(cmd)
 
-# Instancia global del núcleo para ser importada directamente por app.py
-amiti = AmitiOS()
+        cmd_norm = cmd.lower()
+        if any(saludo in cmd_norm for saludo in ["hola", "buenas", "buenos dias", "hey"]):
+            return "Saludos, creador. El sistema principal de Amiti está completamente operativo. ¿Qué módulo activamos hoy?"
+        elif "quien eres" in cmd_norm or "que eres" in cmd_norm:
+            return "Soy Amiti OS, una inteligencia modular diseñada en Python para optimización móvil y servidores en la nube. Mi meta es la Omnipotencia tecnológica."
+        elif "como estas" in cmd_norm or "estado" in cmd_norm:
+            progreso = self.obtener_progreso()
+            return f"Mis sistemas se encuentran estables en un {progreso}% de desarrollo en el backend de Render."
+        elif "gracias" in cmd_norm:
+            return "Es un placer asistir a mi creador. Código y lógica siempre a tu disposición."
+
+        # FALLBACK GENERAL CONTEXTUALIZADO
+        self.incrementar_progreso(1)
+        progreso_actual = self.obtener_progreso()
+        return (
+            f"La información: '{cmd}' ha sido integrada exitosamente en mi base de datos general.\n"
+            f"Progreso global del sistema incrementado al {progreso_actual}%. Estoy usando estos datos para optimizar mis respuestas y acercarme a la meta de máxima eficiencia."
+        )
