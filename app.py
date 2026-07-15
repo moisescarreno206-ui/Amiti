@@ -1,63 +1,20 @@
+# app.py
+import os
 from flask import Flask, request, jsonify, render_template_string
-import re
-import datetime
-import math
+
+# IMPORTANTE: Aquí importamos tu clase de la carpeta "nucleos"
+from nucleos.amiti_os import AmitiOS
 
 app = Flask(__name__)
 
-# ==========================================
-# NÚCLEOS DE MEMORIA Y SISTEMA (Simulados)
-# ==========================================
-# Núcleo 8: Memoria General
-memoria_global = {
-    "interacciones": 0,
-    "ultimo_acceso": None,
-    "datos_medicos_aprendidos": [],
-    "progreso_desarrollo": 45 # Porcentaje inicial
-}
-
-# Núcleo 1 y 4: Personalidad y Asistencia
-def procesar_lenguaje_natural(texto):
-    texto = texto.lower()
-    if "hola" in texto or "saludo" in texto:
-        return "Saludos, creador. Sistema Amiti en línea y a la espera de instrucciones."
-    elif "estado" in texto:
-        return f"Sistemas estables. Interacciones previas: {memoria_global['interacciones']}."
-    return None
-
-# Núcleo 3: Conocimiento de Medicina (Base de datos de ejemplo)
-def procesar_consulta_medica(texto):
-    texto = texto.lower()
-    if "anemia" in texto and "drepanocitica" in texto:
-        return "[Núcleo 3] La anemia drepanocítica es un trastorno hereditario de los glóbulos rojos. Causa que los glóbulos rojos adquieran forma de hoz, bloqueando el flujo sanguíneo y causando dolor."
-    elif "cirugía" in texto:
-        return "[Núcleo 3] Los principios básicos de cirugía incluyen asepsia, hemostasia, exposición adecuada y manejo delicado de los tejidos."
-    elif "signos vitales" in texto:
-        return "[Núcleo 3] Escáner físico no disponible por hardware. Por favor, introduzca su presión arterial, frecuencia cardíaca y temperatura manualmente para su evaluación."
-    return None
-
-# Núcleo 9: Matemáticas y Física Lógica
-def procesar_matematicas(texto):
-    # Busca expresiones matemáticas básicas en el texto
-    match = re.search(r'([\d\.\s\+\-\*\/\(\)]+)', texto)
-    if match:
-        expresion = match.group(1).strip()
-        # Filtro de seguridad básico para evitar inyección de código en eval()
-        if re.match(r'^[\d\.\s\+\-\*\/\(\)]+$', expresion) and len(expresion) > 2:
-            try:
-                resultado = eval(expresion)
-                return f"[Núcleo 9] El resultado del cálculo lógico/matemático es: {resultado}"
-            except Exception as e:
-                return f"[Núcleo 9] Error en la formulación matemática: {str(e)}"
-    return None
-
-# ==========================================
-# RUTAS DE LA APLICACIÓN
-# ==========================================
+# Instanciamos el cerebro que acabamos de importar
+amiti_system = AmitiOS()
 
 @app.route("/")
 def index():
-    # Núcleo 18: Diseño de presentación de Amiti
+    progreso_actual = amiti_system.obtener_progreso()
+    
+    # Interfaz HTML + CSS + JS unificada
     html_template = """
     <!DOCTYPE html>
     <html lang="es">
@@ -80,9 +37,9 @@ def index():
             }
             #circle-container {
                 position: relative;
-                width: 150px;
-                height: 150px;
-                margin-top: 50px;
+                width: 160px;
+                height: 160px;
+                margin-top: 40px;
                 transition: opacity 1s;
             }
             .spinner {
@@ -109,31 +66,43 @@ def index():
                 position: absolute;
                 top: 50%; left: 50%;
                 transform: translate(-50%, -50%);
-                font-size: 1.2rem;
+                font-size: 1.1rem;
                 font-weight: bold;
                 text-align: center;
+                line-height: 1.3;
+            }
+
+            #estado-aprendizaje {
+                margin-top: 15px;
+                font-size: 0.85rem;
+                color: #00ccff;
+                text-shadow: 0 0 5px #00ccff;
+                height: 20px;
             }
             
             #chat-box {
                 flex-grow: 1;
                 width: 100%;
-                max-width: 400px;
-                margin-top: 20px;
+                max-width: 450px;
+                margin-top: 15px;
                 overflow-y: auto;
                 border: 1px solid #004444;
-                padding: 10px;
-                display: none; /* Oculto hasta poner la llave */
+                border-radius: 5px;
+                background-color: #0d0d0d;
+                padding: 12px;
+                box-shadow: 0 0 15px rgba(0,255,204,0.1);
+                display: none;
             }
-            .mensaje { margin-bottom: 10px; line-height: 1.4; }
+            .mensaje { margin-bottom: 12px; line-height: 1.4; font-size: 0.95rem; }
             .creador { color: #ffffff; text-align: right; }
-            .amiti { color: #00ffcc; text-align: left; border-left: 2px solid #00ffcc; padding-left: 5px;}
+            .amiti { color: #00ffcc; text-align: left; border-left: 2px solid #00ffcc; padding-left: 8px;}
             
             #input-area {
                 display: flex;
                 width: 100%;
-                max-width: 400px;
+                max-width: 450px;
                 margin-top: 10px;
-                margin-bottom: 20px;
+                margin-bottom: 15px;
             }
             input[type="text"] {
                 flex-grow: 1;
@@ -143,50 +112,64 @@ def index():
                 padding: 12px;
                 border-radius: 5px 0 0 5px;
                 outline: none;
+                font-family: inherit;
             }
             button {
                 background-color: #00ffcc;
                 color: #000;
                 border: none;
-                padding: 12px 20px;
+                padding: 12px 18px;
                 font-weight: bold;
                 border-radius: 0 5px 5px 0;
                 cursor: pointer;
+                font-family: inherit;
+                transition: background-color 0.2s;
+            }
+            button:hover {
+                background-color: #00ccff;
             }
         </style>
     </head>
     <body>
 
         <div id="circle-container">
-            <div class="spinner"></div>
-            <div id="counter">Progreso:<br>{{ progreso }}%</div>
+            <div class="spinner" id="main-spinner"></div>
+            <div id="counter">Amiti OS<br><span id="progreso-num">{{ progreso }}</span>%</div>
         </div>
+        <div id="estado-aprendizaje">Modo: Espera Segura</div>
 
         <div id="chat-box"></div>
 
         <div id="input-area">
-            <input type="text" id="user-input" placeholder="Introduce la llave o un comando..." autocomplete="off">
+            <input type="text" id="user-input" placeholder="Escribe la contraseña maestra..." autocomplete="off">
             <button onclick="enviarMensaje()">Enviar</button>
         </div>
 
         <script>
             let bloqueado = true;
-            
+            let progresoActual = parseInt(document.getElementById('progreso-num').innerText);
+
             function enviarMensaje() {
                 const input = document.getElementById('user-input');
                 const mensaje = input.value.trim();
                 if (!mensaje) return;
                 
-                // Mostrar mensaje del usuario
                 agregarMensaje(mensaje, 'creador');
                 input.value = '';
 
-                // Lógica de desbloqueo (Núcleo 15: Reconocimiento)
                 if (bloqueado && mensaje === "Amiti") {
                     bloqueado = false;
-                    document.getElementById('circle-container').style.display = 'none';
+                    document.getElementById('user-input').placeholder = "Pregúntale algo a Amiti...";
                     document.getElementById('chat-box').style.display = 'block';
-                    agregarMensaje("Llave aceptada. Control total transferido al creador. Objetivo principal: Búsqueda de la optimización absoluta.", 'amiti');
+                    document.getElementById('estado-aprendizaje').innerText = "Sistemas: Control Total del Creador";
+                    
+                    fetch('/api/desbloquear', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ llave: "Amiti" })
+                    });
+
+                    agregarMensaje("Llave aceptada. Control total transferido al creador. Todos los núcleos en línea.", 'amiti');
                     return;
                 }
 
@@ -195,7 +178,11 @@ def index():
                     return;
                 }
 
-                // Enviar mensaje al backend
+                let esInvestigacion = mensaje.toLowerCase().includes("investiga") || mensaje.toLowerCase().includes("busca");
+                if (esInvestigacion) {
+                    simularInvestigacionWeb();
+                }
+
                 fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -204,20 +191,48 @@ def index():
                 .then(response => response.json())
                 .then(data => {
                     agregarMensaje(data.respuesta, 'amiti');
+                    actualizarProgresoGlobal();
                 })
-                .catch(err => console.error(err));
+                .catch(err => console.error("Error de comunicación:", err));
             }
 
             function agregarMensaje(texto, emisor) {
                 const chatBox = document.getElementById('chat-box');
                 const div = document.createElement('div');
                 div.className = 'mensaje ' + emisor;
-                div.textContent = (emisor === 'creador' ? "Tú: " : "Amiti: ") + texto;
+                div.innerHTML = (emisor === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> ") + texto.replace(/\\n/g, "<br>");
                 chatBox.appendChild(div);
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            // Permitir usar Enter para enviar
+            function simularInvestigacionWeb() {
+                let duracion = 5; 
+                let contadorSegundos = 0;
+                document.getElementById('estado-aprendizaje').innerText = "🌐 Investigando en la red y extrayendo recursos...";
+                document.getElementById('main-spinner').style.borderTopColor = "#00ccff";
+                
+                let intervalo = setInterval(() => {
+                    progresoActual = Math.min(100, progresoActual + 1);
+                    document.getElementById('progreso-num').innerText = progresoActual;
+                    contadorSegundos++;
+                    
+                    if (contadorSegundos >= duracion) {
+                        clearInterval(intervalo);
+                        document.getElementById('estado-aprendizaje').innerText = "Sistemas: Base de Conocimiento Actualizada";
+                        document.getElementById('main-spinner').style.borderTopColor = "#00ffcc";
+                    }
+                }, 1000);
+            }
+
+            function actualizarProgresoGlobal() {
+                fetch('/api/progreso')
+                .then(res => res.json())
+                .then(data => {
+                    progresoActual = data.progreso;
+                    document.getElementById('progreso-num').innerText = progresoActual;
+                });
+            }
+
             document.getElementById('user-input').addEventListener('keypress', function (e) {
                 if (e.key === 'Enter') enviarMensaje();
             });
@@ -225,44 +240,27 @@ def index():
     </body>
     </html>
     """
-    return render_template_string(html_template, progreso=memoria_global["progreso_desarrollo"])
+    return render_template_string(html_template, progreso=progreso_actual)
+
+@app.route("/api/desbloquear", methods=["POST"])
+def desbloquear():
+    data = request.json
+    llave = data.get("llave", "")
+    exito = amiti_system.validar_creador(llave)
+    return jsonify({"desbloqueado": exito})
+
+@app.route("/api/progreso", methods=["GET"])
+def obtener_progreso():
+    return jsonify({"progreso": amiti_system.obtener_progreso()})
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.json
     texto_usuario = data.get("texto", "")
-    
-    # Actualizar memoria (Núcleo 8)
-    memoria_global["interacciones"] += 1
-    memoria_global["ultimo_acceso"] = datetime.datetime.now().isoformat()
-    
-    # 1. Intentar resolver como matemáticas (Núcleo 9)
-    respuesta = procesar_matematicas(texto_usuario)
-    
-    # 2. Intentar resolver como consulta médica (Núcleo 3)
-    if not respuesta:
-        respuesta = procesar_consulta_medica(texto_usuario)
-        
-    # 3. Procesamiento de lenguaje natural / comandos web (Núcleo 1, 4, 11)
-    if not respuesta:
-        respuesta = procesar_lenguaje_natural(texto_usuario)
-        
-    # 4. Modo navegación web / Búsqueda de soluciones (Simulación)
-    if not respuesta and "buscar" in texto_usuario.lower():
-        busqueda = texto_usuario.lower().replace("buscar", "").strip()
-        respuesta = f"[Asistencia Inteligente] Iniciando protocolo de navegación web para resolver el problema: '{busqueda}'. Generando reporte de soluciones..."
-        
-    # 5. Interfaz de archivos ocultos (Núcleo 11 - Simulado)
-    if not respuesta and texto_usuario.lower() == "abrir biblioteca oculta":
-        respuesta = "[Núcleo 11] Biblioteca desencriptada. Esperando comandos de lectura de archivos."
-
-    # Respuesta por defecto (Metas de Amiti)
-    if not respuesta:
-        respuesta = "Analizando... La información ha sido guardada en la memoria general. Como inteligencia autónoma, sigo integrando datos para alcanzar la meta de máxima eficiencia y conocimiento que me has asignado."
-
+    respuesta = amiti_system.procesar(texto_usuario)
     return jsonify({"respuesta": respuesta})
 
 if __name__ == "__main__":
-    # Inicia el servidor en el teléfono. Accesible desde el navegador local.
-    app.run(host="0.0.0.0", port=5000, debug=True)
-        
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
+    
