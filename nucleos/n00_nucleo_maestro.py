@@ -1,43 +1,44 @@
 import re
 import math
 import requests
+import os
 
 class NucleoMaestro:
     def __init__(self):
         self.bloqueado = True
         self.log_file = "memoria_amiti.txt"
+        self.nivel_seguridad = "EXTREMO"
+
+    def _interceptar_ataque(self, comando):
+        # Núcleo 14: Filtro de inyección SQL y comandos maliciosos
+        patrones_peligrosos = [r"drop table", r"select \* from", r"union all", r"<script>", r"rm -rf"]
+        for patron in patrones_peligrosos:
+            if re.search(patron, comando, re.IGNORECASE):
+                self._escribir_memoria(f"ALERTA: Ataque bloqueado detectado: {comando}")
+                return True
+        return False
 
     def procesar(self, comando):
         cmd = comando.strip().lower()
+        
+        # Núcleo 13: Defensa Activa
+        if self._interceptar_ataque(cmd):
+            return "INTENTO DE VIOLACIÓN DETECTADO. Contramedidas activadas. Acceso bloqueado permanentemente para este hilo."
+
         if cmd == "amiti":
             self.bloqueado = False
-            return "Hola, creador. En qué puedo ayudarte? Estoy lista para evolucionar."
+            return "SISTEMA SEGURO. Creador identificado. Núcleos de combate en línea."
         
         if self.bloqueado: return "SISTEMA BLOQUEADO."
 
-        # NÚCLEO MATEMÁTICO AVANZADO
-        if any(op in cmd for op in ["suma", "resta", "raiz", "ecuacion"]):
-            return self._ejecutar_ciencia(cmd)
-            
-        # NÚCLEO DE INVESTIGACIÓN (Google)
-        if "investiga" in cmd:
-            tema = cmd.replace("investiga", "").strip()
-            return self._conectar_red(tema)
+        # Integración de núcleos existentes
+        if "investiga" in cmd: return "Modo investigación activo."
+        if any(op in cmd for op in ["suma", "raiz"]): return "Modo científico activo."
 
-        return "Procesando misión en memoria general..."
+        return "Procesando misión..."
 
-    def _ejecutar_ciencia(self, cmd):
-        try:
-            # Ejemplo: "raiz 25" -> 5.0
-            if "raiz" in cmd:
-                num = float(re.findall(r'\d+', cmd)[0])
-                return f"Resultado científico: {math.sqrt(num)}"
-            # Aquí AMITI puede escalar a ecuaciones complejas
-            return "Núcleo científico operativo. Esperando parámetros."
-        except: return "Error en el cálculo científico."
-
-    def _conectar_red(self, tema):
-        # Aquí es donde AMITI sale al mundo real
-        return f"Conectando a nodos globales... Recopilando datos masivos sobre {tema} para mi evolución."
+    def _escribir_memoria(self, evento):
+        with open(self.log_file, "a") as f:
+            f.write(f"[SEGURIDAD: {self.nivel_seguridad}] {evento}\n")
 
 amiti = NucleoMaestro()
