@@ -1,42 +1,121 @@
 # app.py
 import os
 import sys
+import traceback
 from flask import Flask, request, jsonify, render_template_string
 
-# ⚙️ PARCHE DE RUTAS: Obliga a Python a buscar carpetas dentro del directorio del script.
-# Esto previene el 99% de los fallos de importación en celulares y servidores.
+# ⚙️ PARCHE DE RUTAS AUTOMÁTICO
 ruta_proyecto = os.path.dirname(os.path.abspath(__file__))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
-# 🧠 IMPORTACIÓN INTELIGENTE DE AMITI
+# Variables de control para diagnóstico
+sistema_activo = False
+error_de_importacion = None
+traceback_error = ""
+
+# 🧠 INTENTO DE IMPORTACIÓN PROTEGIDA
 try:
-    # Intento 1: Importar desde carpeta sin tilde (Recomendado para Render)
-    from nucleos.amiti_os import AmitiOS
-except ModuleNotFoundError:
     try:
-        # Intento 2: Respaldo por si tu carpeta en el celular tiene tilde
+        # Intento 1: Importar desde carpeta sin tilde
+        from nucleos.amiti_os import AmitiOS
+    except ModuleNotFoundError:
+        # Intento 2: Por si tu carpeta en el teléfono tiene tilde
         from núcleos.amiti_os import AmitiOS
-    except ModuleNotFoundError as e:
-        print("\n[!] ERROR CRÍTICO: No se pudo encontrar la carpeta de los núcleos.")
-        print("Asegúrate de que tu estructura de archivos sea exactamente así:")
-        print("mi_proyecto/")
-        print("  ├── app.py")
-        print("  └── nucleos/ (o núcleos/)")
-        print("        ├── __init__.py")
-        print("        └── amiti_os.py\n")
-        raise e
+    
+    # Inicializamos el sistema si la importación fue exitosa
+    amiti_system = AmitiOS()
+    sistema_activo = True
+
+except Exception as e:
+    error_de_importacion = e
+    traceback_error = traceback.format_exc()
+    
+    # Clase de emergencia para que Flask corra y te muestre el error en pantalla
+    class FallbackAmitiOS:
+        def obtener_progreso(self): return 0
+        def validar_creador(self, llave): return False
+        def procesar(self, cmd): return "SISTEMA FUERA DE LÍNEA: Revisa el reporte en la página principal."
+    amiti_system = FallbackAmitiOS()
 
 app = Flask(__name__)
 
-# Instanciamos el cerebro que acabamos de importar de forma segura
-amiti_system = AmitiOS()
+
+def mostrar_pantalla_diagnostico(mensaje_personalizado=""):
+    """Genera una interfaz visual detallando el error exacto para el creador."""
+    try:
+        archivos_raiz = os.listdir(ruta_proyecto)
+    except Exception:
+        archivos_raiz = "No se pudo leer el directorio raíz."
+
+    carpetas_detectadas = []
+    if isinstance(archivos_raiz, list):
+        for item in archivos_raiz:
+            ruta_item = os.path.join(ruta_proyecto, item)
+            if os.path.isdir(ruta_item):
+                try:
+                    carpetas_detectadas.append(f"{item}/ {os.listdir(ruta_item)}")
+                except Exception:
+                    carpetas_detectadas.append(f"{item}/ (No accesible)")
+
+    html_error = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Amiti OS - Error de Diagnóstico</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {{ background-color: #120202; color: #ff4444; font-family: monospace; padding: 20px; line-height: 1.5; }}
+            h1 {{ border-bottom: 2px solid #ff4444; padding-bottom: 10px; color: #ff6666; }}
+            pre {{ background-color: #000; padding: 15px; border-radius: 5px; overflow-x: auto; border: 1px solid #ff4444; color: #ff8888; }}
+            .info {{ color: #ffffff; background: #3a0808; padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 5px solid #ff4444; }}
+            ul {{ padding-left: 20px; }}
+            li {{ margin-bottom: 10px; }}
+            code {{ background-color: #333; color: #fff; padding: 2px 6px; border-radius: 3px; }}
+        </style>
+    </head>
+    <body>
+        <h1>⚠️ ERROR DE INICIALIZACIÓN - AMITI OS</h1>
+        <div class="info">
+            <strong>Hola Creador.</strong> Tu servidor Flask está encendido, pero no se pudo cargar la lógica de Amiti. 
+            {mensaje_personalizado}
+        </div>
+        
+        <h3>📂 Archivos detectados en tu directorio:</h3>
+        <pre>
+Ruta del proyecto: {ruta_proyecto}
+Archivos raíz: {archivos_raiz}
+Contenido de carpetas: {carpetas_detectadas}
+        </pre>
+
+        <h3>❌ Registro de error exacto (Traceback de Python):</h3>
+        <pre>{traceback_error}</pre>
+
+        <h3>💡 Cómo solucionarlo rápido:</h3>
+        <ul>
+            <li><strong>Si dice <code>ModuleNotFoundError: No module named 'nucleos'</code>:</strong> Tu carpeta se llama de otra forma, está en otra ruta, o te falta crear el archivo vacío <code>__init__.py</code> dentro de ella.</li>
+            <li><strong>Si el error apunta a una línea de <code>amiti_os.py</code>:</strong> Tienes un error de código o de sintaxis dentro de tu archivo de núcleos. El bloque de arriba te dirá la línea exacta donde está el fallo para que lo corrijas.</li>
+        </ul>
+    </body>
+    </html>
+    """
+    return render_template_string(html_error)
+
 
 @app.route("/")
 def index():
-    progreso_actual = amiti_system.obtener_progreso()
+    if not sistema_activo:
+        return mostrar_pantalla_diagnostico()
     
-    # Interfaz HTML + CSS + JS unificada
+    try:
+        progreso_actual = amiti_system.obtener_progreso()
+    except Exception as e:
+        global traceback_error
+        traceback_error = traceback.format_exc()
+        return mostrar_pantalla_diagnostico("Error al intentar conectar con la base de datos de Amiti.")
+
+    # Interfaz HTML + CSS + JS unificada original
     html_template = """
     <!DOCTYPE html>
     <html lang="es">
