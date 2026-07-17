@@ -39,6 +39,14 @@ class AmitiOS:
                     fecha_registro TEXT
                 )
             """)
+            # [NUEVO] N08: Tabla de memoria persistente para el aprendizaje del creador
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS aprendizaje (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    dato TEXT,
+                    fecha_registro TEXT
+                )
+            """)
             
             # Valores iniciales por defecto
             valores_iniciales = [
@@ -346,6 +354,15 @@ class AmitiOS:
             return self.obtener_personalidad(cmd)
 
         cmd_norm = cmd.lower()
+        
+        # [NUEVO] Comando para verificar la memoria grabada por el creador
+        if "que recuerdas" in cmd_norm or "que has aprendido" in cmd_norm:
+            recuerdos = self._ejecutar_consulta("SELECT dato FROM aprendizaje ORDER BY id DESC LIMIT 5", fetchall=True)
+            if not recuerdos:
+                return "[N08: MEMORIA OBJETIVA] Aún no tengo registros de datos nuevos guardados en mi núcleo de aprendizaje."
+            lista = "\n".join([f"- {r[0]}" for r in recuerdos])
+            return f"[N08: MEMORIA OBJETIVA] Esto es lo último que he integrado físicamente en mi base de datos:\n{lista}"
+
         if any(saludo in cmd_norm for saludo in ["hola", "buenas", "buenos dias", "hey"]):
             return "Saludos, creador. El sistema principal de Amiti está completamente operativo. ¿Qué módulo activamos hoy?"
         elif "quien eres" in cmd_norm or "que eres" in cmd_norm:
@@ -356,10 +373,16 @@ class AmitiOS:
         elif "gracias" in cmd_norm:
             return "Es un placer asistir a mi creador. Código y lógica siempre a tu disposición."
 
-        # FALLBACK GENERAL CONTEXTUALIZADO
+        # FALLBACK GENERAL CONTEXTUALIZADO (¡AHORA SÍ GUARDA DE VERDAD EN LA DB!)
+        self._ejecutar_consulta(
+            "INSERT INTO aprendizaje (dato, fecha_registro) VALUES (?, ?)",
+            (cmd, str(datetime.datetime.now())), commit=True
+        )
+        
         self.incrementar_progreso(1)
         progreso_actual = self.obtener_progreso()
         return (
             f"La información: '{cmd}' ha sido integrada exitosamente en mi base de datos general.\n"
             f"Progreso global del sistema incrementado al {progreso_actual}%. Estoy usando estos datos para optimizar mis respuestas y acercarme a la meta de máxima eficiencia."
-        )
+                )
+                
