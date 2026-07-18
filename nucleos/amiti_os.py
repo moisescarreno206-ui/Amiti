@@ -4,34 +4,40 @@ import re
 import math
 import time
 import random
-import sqlite3
+import psycopg2  # <-- Migrado de sqlite3 a psycopg2 para Neon DB
+from psycopg2.extras import DictCursor
 import datetime
 import base64
 import ast
 
-# Asegura que la base de datos se guarde en la raíz del proyecto, fuera de la carpeta nucleos
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DB_FILE = os.path.join(BASE_DIR, "memoria_amiti.db")
-
 class AmitiOS:
     def __init__(self):
-        self.db_path = DB_FILE
+        # Lee de forma automática el enlace de Neon guardado en el entorno de Render
+        self.db_url = os.environ.get("DATABASE_URL")
         self.bloqueado = True  # Inicia bloqueado hasta poner la llave "Amiti"
         self.inicio_sistema = time.time()
         self.armas_defensivas = []  # N07: Almacén de trazas de ataques bloqueados
         self._inicializar_db()
         
     def _inicializar_db(self):
-        """Crea las tablas de base de datos iniciales si no existen (Esencial para Render)."""
+        """Crea las tablas de base de datos iniciales en la nube si no existen."""
+        if not self.db_url:
+            print("[ALERTA] No se detectó la variable DATABASE_URL externa.")
+            return
+
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = psycopg2.connect(self.db_url)
             cursor = conn.cursor()
+            
+            # Tabla memoria general
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS memoria_general (
                     clave TEXT PRIMARY KEY,
                     valor TEXT
                 )
             """)
+            
+            # Tabla biblioteca oculta
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS biblioteca_oculta (
                     nombre_archivo TEXT PRIMARY KEY,
@@ -39,16 +45,17 @@ class AmitiOS:
                     fecha_registro TEXT
                 )
             """)
-            # [NUEVO] N08: Tabla de memoria persistente para el aprendizaje del creador
+            
+            # N08: Tabla de aprendizaje (Cambiado AUTOINCREMENT de SQLite por SERIAL de Postgres)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS aprendizaje (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     dato TEXT,
                     fecha_registro TEXT
                 )
             """)
             
-            # Valores iniciales por defecto
+            # Valores iniciales por defecto (Adaptado con ON CONFLICT para PostgreSQL)
             valores_iniciales = [
                 ("modo_personalidad", "Empático"),
                 ("progreso", "45"),
@@ -57,17 +64,27 @@ class AmitiOS:
                 ("ultimo_acceso_creador", "Nunca")
             ]
             for clave, valor in valores_iniciales:
-                cursor.execute("INSERT OR IGNORE INTO memoria_general (clave, valor) VALUES (?, ?)", (clave, valor))
+                cursor.execute("""
+                    INSERT INTO memoria_general (clave, valor) 
+                    VALUES (%s, %s) 
+                    ON CONFLICT (clave) DO NOTHING
+                """, (clave, valor))
             
             conn.commit()
             conn.close()
+            print("[INFO] Conexión estable con el clúster de Neon DB.")
         except Exception as e:
-            print(f"Error inicializando base de datos: {e}")
+            print(f"Error inicializando base de datos en la nube: {e}")
 
     def _ejecutar_consulta(self, query, params=(), fetchone=False, fetchall=False, commit=False):
-        """Manejador seguro de transacciones SQLite."""
+        """Manejador seguro de transacciones PostgreSQL en la nube."""
+        if not self.db_url:
+            return "Error de DB: Sin conexión a la red de Neon."
         try:
-            conn = sqlite3.connect(self.db_path)
+            # Traductor automático: Convierte comodines '?' de SQLite al formato '%s' de Postgres
+            query = query.replace('?', '%s')
+            
+            conn = psycopg2.connect(self.db_url)
             cursor = conn.cursor()
             cursor.execute(query, params)
             res = None
@@ -86,13 +103,13 @@ class AmitiOS:
     def obtener_personalidad(self, entrada):
         entrada_norm = entrada.lower()
         if "se agresiva" in entrada_norm or "modo combate" in entrada_norm:
-            self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'modo_personalidad'", ("Combate/Fuego",), commit=True)
+            self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'modo_personalidad'", ("Combate/Fuego",), commit=True)
             return "[N01: PERSONALIDAD] Modo de combate activado. Lenguaje directo, analítico y hostil ante intrusiones."
         elif "se empatica" in entrada_norm or "modo compañera" in entrada_norm:
-            self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'modo_personalidad'", ("Empático",), commit=True)
+            self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'modo_personalidad'", ("Empático",), commit=True)
             return "[N01: PERSONALIDAD] Modo empático activado. Estoy aquí para apoyarte, creador, en tus metas de programación."
         elif "se analitica" in entrada_norm or "modo cientifico" in entrada_norm:
-            self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'modo_personalidad'", ("Científico",), commit=True)
+            self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'modo_personalidad'", ("Científico",), commit=True)
             return "[N01: PERSONALIDAD] Modo analítico activado. Priorizando la lógica rigurosa y las respuestas optimizadas."
 
         modo = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'modo_personalidad'", fetchone=True)
@@ -129,9 +146,8 @@ class AmitiOS:
     def asistencia_investigacion(self, consulta):
         if "investiga" in consulta.lower() or "busca" in consulta.lower():
             tema = consulta.lower().replace("investiga", "").replace("busca", "").strip()
-            # Incrementar progreso al investigar
             self.incrementar_progreso(2)
-            return f"[N04: ASISTENTE DE INVESTIGACIÓN] Escaneando redes globales de información sobre '{tema}'... Descargando papers académicos y optimizando almacenamiento en base de datos local."
+            return f"[N04: ASISTENTE DE INVESTIGACIÓN] Escaneando redes globales de información sobre '{tema}'... Descargando papers académicos y optimizando almacenamiento en la base de datos en la nube."
         return None
 
     # N05: Gestor de Códigos
@@ -201,15 +217,17 @@ class AmitiOS:
 
         return None
 
-    # N10: Encriptación y Compresión
+    # N10: Encriptación y Compresión (Adaptado a Postgres UPSERT con ON CONFLICT)
     def encriptar_y_comprimir(self, nombre, contenido):
         contenido_bytes = contenido.encode('utf-8')
         encriptado = base64.b64encode(contenido_bytes).decode('utf-8')
-        self._ejecutar_consulta(
-            "INSERT OR REPLACE INTO biblioteca_oculta (nombre_archivo, contenido_encriptado, fecha_registro) VALUES (?, ?, ?)",
-            (nombre + ".vault", encriptado, str(datetime.datetime.now())), commit=True
-        )
-        return f"[N10: ENCRIPCIÓN] Archivo '{nombre}' asegurado en la biblioteca oculta."
+        self._ejecutar_consulta("""
+            INSERT INTO biblioteca_oculta (nombre_archivo, contenido_encriptado, fecha_registro) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (nombre_archivo) 
+            DO UPDATE SET contenido_encriptado = EXCLUDED.contenido_encriptado, fecha_registro = EXCLUDED.fecha_registro
+        """, (nombre + ".vault", encriptado, str(datetime.datetime.now())), commit=True)
+        return f"[N10: ENCRIPCIÓN] Archivo '{nombre}' asegurado en la biblioteca oculta de Neon DB."
 
     # N11: Biblioteca de Archivos Ocultos
     def acceder_biblioteca_oculta(self, comando):
@@ -218,7 +236,7 @@ class AmitiOS:
             if not archivos:
                 return "[N11: BAÚL OCULTO] Acceso concedido. No se han encontrado archivos encriptados todavía."
             lista = "\n".join([f"- {a[0]} (Registrado: {a[1]})" for a in archivos])
-            return f"[N11: BAÚL OCULTO] Archivos localizados:\n{lista}"
+            return f"[N11: BAÚL OCULTO] Archivos localizados en la nube:\n{lista}"
         return None
 
     # N12: Rastreo y Localización (Simulado)
@@ -238,11 +256,11 @@ class AmitiOS:
             tasa_db = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'tasa_exito_hackeo'", fetchone=True)
             tasa_actual = float(tasa_db[0]) if tasa_db else 35.5
             nueva_tasa = min(100.0, tasa_actual + random.uniform(1.0, 3.5))
-            self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'tasa_exito_hackeo'", (str(nueva_tasa),), commit=True)
+            self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'tasa_exito_hackeo'", (str(nueva_tasa),), commit=True)
             
             exitos_db = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'exitos_hackeo'", fetchone=True)
             exitos_actual = int(exitos_db[0]) if exitos_db else 0
-            self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'exitos_hackeo'", (str(exitos_actual + 1),), commit=True)
+            self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'exitos_hackeo'", (str(exitos_actual + 1),), commit=True)
             
             self.incrementar_progreso(1)
 
@@ -266,11 +284,11 @@ class AmitiOS:
     def validar_creador(self, llave):
         if llave == "Amiti":
             self.bloqueado = False
-            self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'ultimo_acceso_creador'", (str(datetime.datetime.now()),), commit=True)
+            self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'ultimo_acceso_creador'", (str(datetime.datetime.now()),), commit=True)
             return True
         return False
 
-    # N18: Control de Dispositivos (Nueva Mejora)
+    # N18: Control de Dispositivos 
     def controlar_dispositivo_simulado(self, entrada):
         entrada_norm = entrada.lower()
         if "dispositivo" in entrada_norm or "controla" in entrada_norm or "conecta" in entrada_norm:
@@ -285,6 +303,51 @@ class AmitiOS:
             )
         return None
 
+    # [NUEVO] N19: Generador de Algoritmos Avanzados y Contabilidad Monetaria
+    def generar_algoritmo_contable(self, entrada):
+        entrada_norm = entrada.lower()
+        if any(p in entrada_norm for p in ["crea algoritmo", "algoritmo de contabilidad", "sistema contable", "contabilidad monetaria"]):
+            self.incrementar_progreso(2)
+            return (
+                "[N19: ALGORITMOS Y CONTABILIDAD MONETARIA] Estructura transaccional y balance financiero generado:\n\n"
+                "class MotorContableMonetario:\n"
+                "    def __init__(self, divisa_principal='USD'):\n"
+                "        self.divisa = divisa_principal\n"
+                "        self.historial = []\n"
+                "        self.saldo_neto = 0.0\n"
+                "        \n"
+                "    def registrar_movimiento(self, flujo, monto, motivo):\n"
+                "        \"\"\"Procesa y valida transacciones monetarias flotantes.\"\"\"\n"
+                "        monto_limpio = round(float(monto), 2)\n"
+                "        if flujo.lower() == 'ingreso':\n"
+                "            self.saldo_neto += monto_limpio\n"
+                "        elif flujo.lower() == 'egreso':\n"
+                "            self.saldo_neto -= monto_limpio\n"
+                "        else:\n"
+                "            return 'Error: Flujo monetario no identificado.'\n"
+                "            \n"
+                "        operacion = {\n"
+                "            'id_transaccion': len(self.historial) + 1,\n"
+                "            'flujo': flujo.upper(), 'monto': monto_limpio,\n"
+                "            'motivo': motivo, 'saldo_historico': round(self.saldo_neto, 2)\n"
+                "        }\n"
+                "        self.historial.append(operacion)\n"
+                "        return f'Éxito: {motivo} | {monto_limpio} {self.divisa} asentado.'\n"
+                "        \n"
+                "    def calcular_impuesto_retencion(self, tasa_iva=0.16):\n"
+                "        \"\"\"Aplica el cálculo fiscal inmediato sobre ingresos acumulados.\"\"\"\n"
+                "        ingresos_totales = sum(tx['monto'] for tx in self.historial if tx['flujo'] == 'INGRESO')\n"
+                "        return round(ingresos_totales * tasa_iva, 2)\n"
+                "        \n"
+                "    def generar_estado_financiero(self):\n"
+                "        return {\n"
+                "            'saldo_actual': round(self.saldo_neto, 2),\n"
+                "            'total_operaciones': len(self.historial),\n"
+                "            'moneda_auditoria': self.divisa\n"
+                "        }\n"
+            )
+        return None
+
     # Métodos de Progreso y Evolución General
     def obtener_progreso(self):
         res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
@@ -293,7 +356,7 @@ class AmitiOS:
     def incrementar_progreso(self, cantidad):
         prog_actual = self.obtener_progreso()
         nuevo_prog = min(100, prog_actual + cantidad)
-        self._ejecutar_consulta("UPDATE memoria_general SET valor = ? WHERE clave = 'progreso'", (str(nuevo_prog),), commit=True)
+        self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'progreso'", (str(nuevo_prog),), commit=True)
         return nuevo_prog
 
     # PROCESADOR DE ENTRADAS DEL CHAT CENTRAL
@@ -314,6 +377,10 @@ class AmitiOS:
         if res_math:
             return res_math
 
+        res_algo = self.generar_algoritmo_contable(cmd)
+        if res_algo:
+            return res_algo
+
         res_med = self.escanear_medicina(cmd)
         if res_med:
             return res_med
@@ -324,65 +391,4 @@ class AmitiOS:
 
         res_hack = self.ejecutar_hackeo_remoto(cmd)
         if res_hack:
-            return res_hack
-
-        res_mask = self.generar_mascaras(cmd)
-        if res_mask:
-            return res_mask
-
-        res_atk = self.ejecutar_ataque_digital(cmd)
-        if res_atk:
-            return res_atk
-
-        res_track = self.rastrear_objetivo(cmd)
-        if res_track:
-            return res_track
-
-        res_code = self.autogenerar_mejoras(cmd)
-        if res_code:
-            return res_code
-
-        res_vault = self.acceder_biblioteca_oculta(cmd)
-        if res_vault:
-            return res_vault
-
-        res_dev = self.controlar_dispositivo_simulado(cmd)
-        if res_dev:
-            return res_dev
-
-        if any(p in cmd.lower() for p in ["agresiva", "empatica", "analitica", "modo"]):
-            return self.obtener_personalidad(cmd)
-
-        cmd_norm = cmd.lower()
-        
-        # [NUEVO] Comando para verificar la memoria grabada por el creador
-        if "que recuerdas" in cmd_norm or "que has aprendido" in cmd_norm:
-            recuerdos = self._ejecutar_consulta("SELECT dato FROM aprendizaje ORDER BY id DESC LIMIT 5", fetchall=True)
-            if not recuerdos:
-                return "[N08: MEMORIA OBJETIVA] Aún no tengo registros de datos nuevos guardados en mi núcleo de aprendizaje."
-            lista = "\n".join([f"- {r[0]}" for r in recuerdos])
-            return f"[N08: MEMORIA OBJETIVA] Esto es lo último que he integrado físicamente en mi base de datos:\n{lista}"
-
-        if any(saludo in cmd_norm for saludo in ["hola", "buenas", "buenos dias", "hey"]):
-            return "Saludos, creador. El sistema principal de Amiti está completamente operativo. ¿Qué módulo activamos hoy?"
-        elif "quien eres" in cmd_norm or "que eres" in cmd_norm:
-            return "Soy Amiti OS, una inteligencia modular diseñada en Python para optimización móvil y servidores en la nube. Mi meta es la Omnipotencia tecnológica."
-        elif "como estas" in cmd_norm or "estado" in cmd_norm:
-            progreso = self.obtener_progreso()
-            return f"Mis sistemas se encuentran estables en un {progreso}% de desarrollo en el backend de Render."
-        elif "gracias" in cmd_norm:
-            return "Es un placer asistir a mi creador. Código y lógica siempre a tu disposición."
-
-        # FALLBACK GENERAL CONTEXTUALIZADO (¡AHORA SÍ GUARDA DE VERDAD EN LA DB!)
-        self._ejecutar_consulta(
-            "INSERT INTO aprendizaje (dato, fecha_registro) VALUES (?, ?)",
-            (cmd, str(datetime.datetime.now())), commit=True
-        )
-        
-        self.incrementar_progreso(1)
-        progreso_actual = self.obtener_progreso()
-        return (
-            f"La información: '{cmd}' ha sido integrada exitosamente en mi base de datos general.\n"
-            f"Progreso global del sistema incrementado al {progreso_actual}%. Estoy usando estos datos para optimizar mis respuestas y acercarme a la meta de máxima eficiencia."
-                )
-                
+            return res_ha
