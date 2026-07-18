@@ -167,9 +167,11 @@ class AmitiOS:
                 pass
         return None
 
+    # 🔒 ENCRIPCIÓN CORREGIDA PARA PALABRAS CON DOS PUNTOS (:)
     def encriptar_y_comprimir(self, entrada):
         if "encripta" in entrada.lower():
-            partes = entrada.split(":")
+            # Forzamos split de maximo 2 cortes para no romper el contenido interno del libro
+            partes = entrada.split(":", 2)
             if len(partes) < 3: return "[N10: ENCRIPCIÓN] Usa: 'encripta:nombre_archivo:contenido'"
             nombre, contenido = partes[1].strip(), partes[2].strip()
             enc = base64.b64encode(contenido.encode('utf-8')).decode('utf-8')
@@ -178,14 +180,12 @@ class AmitiOS:
                 VALUES (%s, %s, %s) ON CONFLICT (nombre_archivo) 
                 DO UPDATE SET contenido_encriptado = EXCLUDED.contenido_encriptado
             """, (nombre + ".vault", enc, str(datetime.datetime.now())), commit=True)
-            return f"[N10: ENCRIPCIÓN] Archivo '{nombre}.vault' resguardado en Neon DB."
+            return f"[N10: ENCRIPCIÓN] Archivo '{nombre}.vault' resguardado en Neon DB de forma íntegra."
         return None
 
-    # 📚 SISTEMA DE BAÚL N11 CON DESENCRIPCIÓN Y LECTURA
     def acceder_biblioteca_oculta(self, comando):
         comando_norm = comando.lower().strip()
         
-        # Sub-comando para leer y descifrar el libro/manual especifico
         if "leer:" in comando_norm:
             partes = comando.split(":", 1)
             nombre = partes[1].strip()
@@ -197,11 +197,10 @@ class AmitiOS:
                 return f"[N11: BAÚL OCULTO] El libro/documento '{nombre}' no existe en el clúster de Neon."
             try:
                 contenido_dec = base64.b64decode(res[0].encode('utf-8')).decode('utf-8')
-                return f"[N11: LECTOR] 📖 Archivo: {nombre}\n└─ Contenido recuperado:\n\n{contenido_dec}"
+                return f"[N11: LECTOR] <b>📖 Archivo:</b> {nombre}\n└─ Contenido recuperado:\n\n{contenido_dec}"
             except Exception as e:
                 return f"[N11: ERROR] Fallo crítico al procesar el cifrado Base64: {str(e)}"
 
-        # Listado normal de la biblioteca
         if "biblioteca oculta" in comando_norm or "abrir biblioteca" in comando_norm:
             archivos = self._ejecutar_consulta("SELECT nombre_archivo, fecha_registro FROM biblioteca_oculta", fetchall=True)
             if not archivos: return "[N11: BAÚL OCULTO] No hay archivos encriptados todavía."
@@ -327,4 +326,4 @@ class AmitiOS:
             return f"[Amiti OS - {p}]: Entrada procesada sin coincidencia algorítmica. Estructura lingüística libre detectada. Por favor, proporcione variables o comandos indexados."
         else:
             return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo de cálculo o desarrollo en él. Recuerda que puedes pedirme operaciones matemáticas combinadas o que genere código contable de forma directa y lo resolveré al instante. 🚀"
-    
+                
