@@ -83,7 +83,7 @@ class AmitiOS:
             self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'modo_personalidad'", ("Científico",), commit=True)
             return "[N01: PERSONALIDAD] Modo analítico activado. Priorizando la lógica rigurosa."
         modo = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'modo_personalidad'", fetchone=True)
-        return modo[0] if modo else "Omnipotente"
+        return modo[0] if modo else "Empático"
 
     def proteger_creador(self, entrada):
         if any(p in entrada.lower() for p in ["peligro", "amenaza", "ataque", "extorsion", "emergencia"]):
@@ -108,8 +108,8 @@ class AmitiOS:
         return None
 
     def autogenerar_mejoras(self, entrada):
-        if "crea codigo" in entrada.lower() or "genera funcion" in entrada.lower():
-            return "[N05: AUTO-DESARROLLADOR] Estructura:\n\ndef nueva_funcion_amiti(*args):\n    return sum(args)"
+        if "genera funcion" in entrada.lower() or "desarrolla funcion" in entrada.lower():
+            return "[N05: AUTO-DESARROLLADOR] Estructura modular generada:\n\ndef nueva_funcion_amiti(*args):\n    return sum(args)"
         return None
 
     def ejecutar_ataque_digital(self, entrada):
@@ -139,19 +139,41 @@ class AmitiOS:
             return "[N08: MEMORIA]\n" + "\n".join([f"• [{r[1]}] {r[0]}" for r in registros])
         return None
 
+    # 🧮 MOTOR DE MATEMÁTICAS AVANZADAS E INTELIGENTES (N09)
     def resolver_matematicas_y_fisica(self, entrada):
         limpia = entrada.lower().strip()
+        
+        # 1. Extracción de Raíz Cuadrada Flexible
         if "raiz" in limpia or "raíz" in limpia:
-            nums = re.findall(r'\d+', limpia)
-            if nums: return f"[N09: MATEMÁTICAS] Raíz cuadrada de {nums[0]} = {math.sqrt(float(nums[0]))}"
+            nums = re.findall(r'\d+\.?\d*', limpia)
+            if nums:
+                n = float(nums[0])
+                return f"[N09: MATEMÁTICAS] 🧠 Raíz Cuadrada Procesada:\n√{n} = {math.sqrt(n)}"
+
+        # 2. Extracción de Física Lógica
         if "fuerza" in limpia:
             m = re.search(r'm\s*=\s*(\d+(\.\d+)?)', limpia)
             a = re.search(r'a\s*=\s*(\d+(\.\d+)?)', limpia)
             if m and a: return f"[N09: FÍSICA] F = m * a -> {float(m.group(1))} kg * {float(a.group(1))} m/s² = {float(m.group(1)) * float(a.group(1))} N"
-        caracteres = set("0123456789+-*/(). ")
-        if all(c in caracteres for c in limpia) and any(op in limpia for op in "+-*/") and len(limpia) > 2:
-            try: return f"[N09: MATEMÁTICAS] Resultado: {limpia} = {eval(limpia, {'__builtins__': None}, {})}"
-            except: pass
+
+        # 3. Extractor de Ecuaciones Combinadas y Divididas Integradas en Texto
+        # Quitamos palabras conversacionales comunes para aislar los números y operadores
+        filtrado = limpia
+        for palabra in ["calcula", "cuanto es", "cuánto es", "resuelve", "ecuacion", "ecuación", "resultado", "de"]:
+            filtrado = filtrado.replace(palabra, "")
+        
+        # Filtrar caracteres puros de ecuaciones
+        expresion = "".join([c for c in filtrado if c in "0123456789+-*/(). "]).strip()
+        
+        # Evaluar si contiene una ecuación combinada real válida
+        if expresion and re.search(r'\d', expresion) and any(op in expresion for op in "+-*/"):
+            try:
+                if "/0" in expresion.replace(" ", ""):
+                    return "[N09: MATEMÁTICAS] Error: División entre cero indefinida."
+                resultado = eval(expresion, {"__builtins__": None}, {})
+                return f"[N09: MATEMÁTICAS] 🧠 Ecuación Combinada Resuelta:\nExpresión: {expresion}\nResultado = {resultado}"
+            except:
+                pass
         return None
 
     def encriptar_y_comprimir(self, entrada):
@@ -224,11 +246,14 @@ class AmitiOS:
             return "[N18: HARDWARE] Mapeando periféricos. Interfaz optimizada de manera síncrona."
         return None
 
+    # 📊 FILTRO DE COINCIDENCIAS CONTABLES FLEXIBLE (N19)
     def generar_algoritmo_contable(self, entrada):
-        if any(p in entrada.lower() for p in ["crea algoritmo", "sistema contable", "contabilidad monetaria"]):
+        entrada_norm = entrada.lower()
+        # Se activa si encuentra la combinación de palabras clave sin importar el orden o conectores
+        if "algoritmo" in entrada_norm and ("contab" in entrada_norm or "crea" in entrada_norm) or "sistema contable" in entrada_norm:
             self.incrementar_progreso(2)
             return (
-                "[N19: ALGORITMOS CONTABLES] Estructura transaccional monetaria:\n\n"
+                "[N19: ALGORITMOS CONTABLES] 📊 Estructura transaccional monetaria generada:\n\n"
                 "```python\n"
                 "class MotorContableMonetario:\n"
                 "    def __init__(self):\n"
@@ -255,10 +280,12 @@ class AmitiOS:
         self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'progreso'", (str(nuevo),), commit=True)
         return nuevo
 
+    # ⚡ PROCESADOR CENTRAL CON RESPUESTAS DE IA DINÁMICAS
     def procesar(self, cmd):
         if self.bloqueado: return "BLOQUEADO. Ingrese la llave de seguridad."
+        cmd_norm = cmd.lower().strip()
         
-        # Orquestación automática de sub-núcleos estructurados
+        # Orquestación de sub-núcleos estructurados
         modulos = [
             self.defender_y_copiar, self.proteger_creador, self.resolver_matematicas_y_fisica,
             self.generar_algoritmo_contable, self.ejecutar_auto_mantenimiento_db, self.obtener_telemetria_hardware,
@@ -273,5 +300,26 @@ class AmitiOS:
             if resultado: return resultado
 
         p = self.obtener_personalidad(cmd)
-        if "se " in cmd.lower() or "modo " in cmd.lower(): return p
-        return f"[Amiti OS - {p}]: Escucha activa establecida, Creador. Clúster Neon DB listo para comandos macro."
+        if "se " in cmd_norm or "modo " in cmd_norm: return p
+        
+        # 🤖 MATRIZ DE RESPUESTAS CONVERSACIONALES DE IA ASISTENTE (Fallback Inteligente)
+        if any(h in cmd_norm for h in ["hola", "saludos", "buenas"]):
+            return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y la base de datos Neon están en línea. ¿Qué cálculo, algoritmo o auditoría simulada ordenas hoy?"
+            
+        if any(a in cmd_norm for a in ["ayuda", "que puedes hacer", "funciones", "comandos"]):
+            return (
+                f"[Amiti OS - {p}]: 🤖 Aquí tienes mi mapa de capacidades actuales habilitadas:\n\n"
+                "📊 **Cálculo Avanzado:** Raíces cuadradas, ecuaciones combinadas y divididas embebidas en texto (ej: 'calcula (20+10)/5').\n"
+                "⚙️ **Desarrollo:** Pídeme 'crea un algoritmo de contabilidad' o 'genera funcion'.\n"
+                "🛡️ **Ciberseguridad:** 'hackea [objetivo]', 'genera mascara' o 'encripta:archivo:texto'.\n"
+                "📚 **Conocimiento:** Soporte en medicina (fisiopatología), inglés ('conjugacion') y memoria persistente ('aprende [dato]')."
+            )
+
+        # Respuestas según temperamento si el texto es libre
+        if p == "Combate/Fuego":
+            return f"[Amiti OS - {p}]: Mensaje analizado de forma estricta. Ningún patrón crítico o comando macro detectado en el string. Manteniendo cortafuegos en alerta máxima."
+        elif p == "Científico":
+            return f"[Amiti OS - {p}]: Entrada procesada sin coincidencia algorítmica. Estructura lingüística libre detectada. Por favor, proporcione variables o comandos indexados."
+        else:
+            return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo de cálculo o desarrollo en él. Recuerda que puedes pedirme operaciones matemáticas combinadas o que genere código contable de forma directa y lo resolveré al instante. 🚀"
+                
