@@ -39,7 +39,7 @@ class AmitiOS:
                 )
             """)
             valores_iniciales = [
-                ("modo_personalidad", "Empático"), ("progreso", "45"),
+                ("modo_personalidad", "Empático"), ("progreso", "51"),
                 ("tasa_exito_hackeo", "35.5"), ("exitos_hackeo", "0"),
                 ("ultimo_acceso_creador", "Nunca")
             ]
@@ -91,12 +91,12 @@ class AmitiOS:
         return None
 
     def escanear_medicina(self, entrada):
-        entrada_norm = entrada.lower()
-        if "anemia" in entrada_norm and "drepanocitica" in entrada_norm or "fisiopatologia" in entrada_norm:
+        text = entrada.lower()
+        if "anemia" in text and "drepanocitica" in text or "fisiopatologia" in text:
             return "[N03: MEDICINA] Anemia Drepanocítica: Mutación en gen beta-globina (ácido glutámico por valina en pos 6). En hipoxia, la HbS se polimeriza generando drepanocitos, oclusión microvascular y hemólisis."
-        elif "cirugia" in entrada_norm or "schwartz" in entrada_norm:
+        elif "cirugia" in text or "schwartz" in text:
             return "[N03: CIRUGÍA] Principios (Schwartz): Hemostasia estricta, conservación de suministro sanguíneo, asepsia y manejo delicado de tejidos."
-        elif "signos vitales" in entrada_norm:
+        elif "signos vitales" in text:
             return "[N03: TELEMETRÍA] Signos simulados: Temperatura: 36.5°C, Frecuencia Cardíaca: 72 lpm, SpO2: 98%."
         return None
 
@@ -126,14 +126,14 @@ class AmitiOS:
         return None
 
     def registrar_aprendizaje(self, entrada):
-        entrada_norm = entrada.lower()
-        if "aprende" in entrada_norm or "memoriza" in entrada_norm:
+        text = entrada.lower()
+        if "aprende" in text or "memoriza" in text:
             dato = entrada.replace("aprende", "").replace("memoriza", "").strip()
             if not dato: return "[N08: APRENDIZAJE] Especifica el dato a indexar."
             self._ejecutar_consulta("INSERT INTO aprendizaje (dato, fecha_registro) VALUES (%s, %s)", (dato, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")), commit=True)
             self.incrementar_progreso(1)
             return f"[N08: APRENDIZAJE] Conocimiento indexado con éxito: '{dato}'."
-        if "recuerda datos" in entrada_norm or "ver aprendizaje" in entrada_norm:
+        if "recuerda datos" in text or "ver aprendizaje" in text:
             registros = self._ejecutar_consulta("SELECT dato, fecha_registro FROM aprendizaje ORDER BY id DESC LIMIT 5", fetchall=True)
             if not registros: return "[N08: APRENDIZAJE] Clústeres vacíos."
             return "[N08: MEMORIA]\n" + "\n".join([f"• [{r[1]}] {r[0]}" for r in registros])
@@ -167,10 +167,80 @@ class AmitiOS:
                 pass
         return None
 
-    # 🔒 ENCRIPCIÓN CORREGIDA PARA PALABRAS CON DOS PUNTOS (:)
+    # ✨ NUEVO SUBMÓDULO: MOTOR CONTABLE NARRATIVO PARA INTERCEPTAR PROBLEMAS DE NÓMINA / TRABAJADORES
+    def analizar_problemas_nomina_y_pagos(self, entrada):
+        limpia = entrada.lower()
+        if not any(k in limpia for k in ["trabajador", "empleado", "pagar", "comision", "comisión", "sueldo", "nomina", "cuenta"]):
+            return None
+            
+        nums = [float(n) for n in re.findall(r'\d+\.?\d*', limpia)]
+        if len(nums) < 2:
+            return None
+            
+        cant_trabajadores = None
+        comision = 0.0
+        pago_base = None
+        
+        # 1. Extraer cantidad de trabajadores por proximidad de texto
+        match_trabajadores = re.search(r'(\d+)\s*(trabajador|empleado|persona|obrer|ayudante)', limpia)
+        if match_trabajadores:
+            cant_trabajadores = float(match_trabajadores.group(1))
+        else:
+            match_trabajadores_rev = re.search(r'(trabajador|empleado|persona|obrer|ayudante)es?\s*(\d+)', limpia)
+            if match_trabajadores_rev:
+                cant_trabajadores = float(match_trabajadores_rev.group(2))
+                
+        # 2. Extraer valor de comisión por palabras clave cercanas
+        match_comision = re.search(r'(\d+)\s*(de\s*)?comisi', limpia)
+        if match_comision:
+            comision = float(match_comision.group(1))
+        else:
+            match_comision_rev = re.search(r'comisi\w*\s*(de\s*)?(\d+)', limpia)
+            if match_comision_rev:
+                comision = float(match_comision_rev.group(2))
+                
+        # 3. Asignación inteligente por descarte para el Pago Base
+        valores_usados = []
+        if cant_trabajadores is not None: valores_usados.append(cant_trabajadores)
+        if comision != 0.0: valores_usados.append(comision)
+        
+        valores_restantes = [n for n in nums if n not in valores_usados]
+        
+        if cant_trabajadores is not None:
+            if valores_restantes:
+                pago_base = valores_restantes[0]
+        else:
+            # Fallback en orden de escritura por defecto [Cantidad, Pago, Comisión]
+            if len(nums) == 3:
+                cant_trabajadores = nums[0]
+                pago_base = nums[1]
+                comision = nums[2]
+            elif len(nums) == 2:
+                cant_trabajadores = nums[0]
+                pago_base = nums[1]
+                
+        if cant_trabajadores is None or pago_base is None:
+            return None
+            
+        # Cálculos del Motor Contable Narrativo
+        total_por_persona = pago_base + comision
+        total_general = total_por_persona * cant_trabajadores
+        
+        # Escalamos el progreso del sistema por resolver el obstáculo
+        self.incrementar_progreso(3)
+        
+        return (
+            f"[N19: MOTOR CONTABLE NARRATIVO] 📊 Análisis Analítico de Pagos:\n"
+            f"• Personal detectado: {int(cant_trabajadores)} trabajadores.\n"
+            f"• Sueldo base individual: ${pago_base:.2f}\n"
+            f"• Comisión por unidad: ${comision:.2f}\n"
+            f"└─ Desglose de Operación:\n"
+            f"   Monto por trabajador: ${pago_base:.2f} + ${comision:.2f} =${total_por_persona:.2f}\n"
+            f"   TOTAL NETO A PAGAR: {int(cant_trabajadores)} × ${total_por_persona:.2f} =${total_general:.2f}"
+        )
+
     def encriptar_y_comprimir(self, entrada):
         if "encripta" in entrada.lower():
-            # Forzamos split de maximo 2 cortes para no romper el contenido interno del libro
             partes = entrada.split(":", 2)
             if len(partes) < 3: return "[N10: ENCRIPCIÓN] Usa: 'encripta:nombre_archivo:contenido'"
             nombre, contenido = partes[1].strip(), partes[2].strip()
@@ -185,13 +255,10 @@ class AmitiOS:
 
     def acceder_biblioteca_oculta(self, comando):
         comando_norm = comando.lower().strip()
-        
         if "leer:" in comando_norm:
             partes = comando.split(":", 1)
             nombre = partes[1].strip()
-            if not nombre.endswith(".vault"):
-                nombre += ".vault"
-                
+            if not nombre.endswith(".vault"): nombre += ".vault"
             res = self._ejecutar_consulta("SELECT contenido_encriptado FROM biblioteca_oculta WHERE nombre_archivo = %s", (nombre,), fetchone=True)
             if not res or res[0] is None:
                 return f"[N11: BAÚL OCULTO] El libro/documento '{nombre}' no existe en el clúster de Neon."
@@ -200,7 +267,6 @@ class AmitiOS:
                 return f"[N11: LECTOR] <b>📖 Archivo:</b> {nombre}\n└─ Contenido recuperado:\n\n{contenido_dec}"
             except Exception as e:
                 return f"[N11: ERROR] Fallo crítico al procesar el cifrado Base64: {str(e)}"
-
         if "biblioteca oculta" in comando_norm or "abrir biblioteca" in comando_norm:
             archivos = self._ejecutar_consulta("SELECT nombre_archivo, fecha_registro FROM biblioteca_oculta", fetchall=True)
             if not archivos: return "[N11: BAÚL OCULTO] No hay archivos encriptados todavía."
@@ -244,10 +310,10 @@ class AmitiOS:
         return None
 
     def modulo_linguistico_ingles(self, entrada):
-        entrada_norm = entrada.lower()
-        if "traduce" in entrada_norm:
+        text = entrada.lower()
+        if "traduce" in text:
             return f"[N17: LINGÜÍSTICA] Semántica analizada para: '{entrada.replace('traduce','').strip()}'."
-        elif "conjugacion" in entrada_norm or "verbo" in entrada_norm:
+        elif "conjugacion" in text or "verbo" in text:
             return "[N17: LINGÜÍSTICA] Esquema de verbos irregulares:\n• Go -> Went -> Gone\n• Write -> Wrote -> Written\n• Build -> Built -> Built"
         return None
 
@@ -257,8 +323,8 @@ class AmitiOS:
         return None
 
     def generar_algoritmo_contable(self, entrada):
-        entrada_norm = entrada.lower()
-        if "algoritmo" in entrada_norm and ("contab" in entrada_norm or "crea" in entrada_norm) or "sistema contable" in entrada_norm:
+        text = entrada.lower()
+        if "algoritmo" in text and ("contab" in text or "crea" in text) or "sistema contable" in text:
             self.incrementar_progreso(2)
             return (
                 "[N19: ALGORITMOS CONTABLES] 📊 Estructura transaccional monetaria generada:\n\n"
@@ -280,7 +346,7 @@ class AmitiOS:
 
     def obtener_progreso(self):
         res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
-        return int(res[0]) if res else 45
+        return int(res[0]) if res else 51
 
     def incrementar_progreso(self, cantidad):
         prog = self.obtener_progreso()
@@ -294,7 +360,8 @@ class AmitiOS:
         
         modulos = [
             self.defender_y_copiar, self.proteger_creador, self.resolver_matematicas_y_fisica,
-            self.generar_algoritmo_contable, self.ejecutar_auto_mantenimiento_db, self.obtener_telemetria_hardware,
+            self.analizar_problemas_nomina_y_pagos, self.generar_algoritmo_contable,
+            self.ejecutar_auto_mantenimiento_db, self.obtener_telemetria_hardware,
             self.registrar_aprendizaje, self.encriptar_y_comprimir, self.acceder_biblioteca_oculta,
             self.escanear_medicina, self.asistencia_investigacion, self.autogenerar_mejoras,
             self.ejecutar_hackeo_remoto, self.rastrear_objetivo, self.generar_mascaras,
@@ -310,20 +377,4 @@ class AmitiOS:
         
         if any(h in cmd_norm for h in ["hola", "saludos", "buenas"]):
             return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y la base de datos Neon están en línea. ¿Qué cálculo, algoritmo o auditoría simulada ordenas hoy?"
-            
-        if any(a in cmd_norm for a in ["ayuda", "que puedes hacer", "funciones", "comandos"]):
-            return (
-                f"[Amiti OS - {p}]: 🤖 Aquí tienes mi mapa de capacidades actuales habilitadas:\n\n"
-                "📊 **Cálculo Avanzado:** Raíces cuadradas, ecuaciones combinadas y divididas embebidas en texto (ej: 'calcula (20+10)/5').\n"
-                "⚙️ **Desarrollo:** Pídeme 'crea un algoritmo de contabilidad' o 'genera funcion'.\n"
-                "🛡️ **Ciberseguridad:** 'hackea [objetivo]', 'genera mascara' o 'encripta:archivo:texto'.\n"
-                "📚 **Conocimiento:** Soporte en medicina (fisiopatología), inglés ('conjugacion') y memoria persistente ('aprende [dato]')."
-            )
-
-        if p == "Combate/Fuego":
-            return f"[Amiti OS - {p}]: Mensaje analizado de forma estricta. Ningún patrón crítico o comando macro detectado en el string. Manteniendo cortafuegos en alerta máxima."
-        elif p == "Científico":
-            return f"[Amiti OS - {p}]: Entrada procesada sin coincidencia algorítmica. Estructura lingüística libre detectada. Por favor, proporcione variables o comandos indexados."
-        else:
-            return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo de cálculo o desarrollo en él. Recuerda que puedes pedirme operaciones matemáticas combinadas o que genere código contable de forma directa y lo resolveré al instante. 🚀"
-                
+          
