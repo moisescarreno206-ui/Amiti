@@ -139,33 +139,24 @@ class AmitiOS:
             return "[N08: MEMORIA]\n" + "\n".join([f"• [{r[1]}] {r[0]}" for r in registros])
         return None
 
-    # 🧮 MOTOR DE MATEMÁTICAS AVANZADAS E INTELIGENTES (N09)
     def resolver_matematicas_y_fisica(self, entrada):
         limpia = entrada.lower().strip()
-        
-        # 1. Extracción de Raíz Cuadrada Flexible
         if "raiz" in limpia or "raíz" in limpia:
             nums = re.findall(r'\d+\.?\d*', limpia)
             if nums:
                 n = float(nums[0])
                 return f"[N09: MATEMÁTICAS] 🧠 Raíz Cuadrada Procesada:\n√{n} = {math.sqrt(n)}"
 
-        # 2. Extracción de Física Lógica
         if "fuerza" in limpia:
             m = re.search(r'm\s*=\s*(\d+(\.\d+)?)', limpia)
             a = re.search(r'a\s*=\s*(\d+(\.\d+)?)', limpia)
             if m and a: return f"[N09: FÍSICA] F = m * a -> {float(m.group(1))} kg * {float(a.group(1))} m/s² = {float(m.group(1)) * float(a.group(1))} N"
 
-        # 3. Extractor de Ecuaciones Combinadas y Divididas Integradas en Texto
-        # Quitamos palabras conversacionales comunes para aislar los números y operadores
         filtrado = limpia
         for palabra in ["calcula", "cuanto es", "cuánto es", "resuelve", "ecuacion", "ecuación", "resultado", "de"]:
             filtrado = filtrado.replace(palabra, "")
-        
-        # Filtrar caracteres puros de ecuaciones
         expresion = "".join([c for c in filtrado if c in "0123456789+-*/(). "]).strip()
         
-        # Evaluar si contiene una ecuación combinada real válida
         if expresion and re.search(r'\d', expresion) and any(op in expresion for op in "+-*/"):
             try:
                 if "/0" in expresion.replace(" ", ""):
@@ -190,8 +181,28 @@ class AmitiOS:
             return f"[N10: ENCRIPCIÓN] Archivo '{nombre}.vault' resguardado en Neon DB."
         return None
 
+    # 📚 SISTEMA DE BAÚL N11 CON DESENCRIPCIÓN Y LECTURA
     def acceder_biblioteca_oculta(self, comando):
-        if "biblioteca oculta" in comando.lower() or "abrir biblioteca" in comando.lower():
+        comando_norm = comando.lower().strip()
+        
+        # Sub-comando para leer y descifrar el libro/manual especifico
+        if "leer:" in comando_norm:
+            partes = comando.split(":", 1)
+            nombre = partes[1].strip()
+            if not nombre.endswith(".vault"):
+                nombre += ".vault"
+                
+            res = self._ejecutar_consulta("SELECT contenido_encriptado FROM biblioteca_oculta WHERE nombre_archivo = %s", (nombre,), fetchone=True)
+            if not res or res[0] is None:
+                return f"[N11: BAÚL OCULTO] El libro/documento '{nombre}' no existe en el clúster de Neon."
+            try:
+                contenido_dec = base64.b64decode(res[0].encode('utf-8')).decode('utf-8')
+                return f"[N11: LECTOR] 📖 Archivo: {nombre}\n└─ Contenido recuperado:\n\n{contenido_dec}"
+            except Exception as e:
+                return f"[N11: ERROR] Fallo crítico al procesar el cifrado Base64: {str(e)}"
+
+        # Listado normal de la biblioteca
+        if "biblioteca oculta" in comando_norm or "abrir biblioteca" in comando_norm:
             archivos = self._ejecutar_consulta("SELECT nombre_archivo, fecha_registro FROM biblioteca_oculta", fetchall=True)
             if not archivos: return "[N11: BAÚL OCULTO] No hay archivos encriptados todavía."
             return "[N11: BAÚL OCULTO] Baúl en la nube:\n" + "\n".join([f"- {a[0]} ({a[1]})" for a in archivos])
@@ -246,10 +257,8 @@ class AmitiOS:
             return "[N18: HARDWARE] Mapeando periféricos. Interfaz optimizada de manera síncrona."
         return None
 
-    # 📊 FILTRO DE COINCIDENCIAS CONTABLES FLEXIBLE (N19)
     def generar_algoritmo_contable(self, entrada):
         entrada_norm = entrada.lower()
-        # Se activa si encuentra la combinación de palabras clave sin importar el orden o conectores
         if "algoritmo" in entrada_norm and ("contab" in entrada_norm or "crea" in entrada_norm) or "sistema contable" in entrada_norm:
             self.incrementar_progreso(2)
             return (
@@ -280,12 +289,10 @@ class AmitiOS:
         self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'progreso'", (str(nuevo),), commit=True)
         return nuevo
 
-    # ⚡ PROCESADOR CENTRAL CON RESPUESTAS DE IA DINÁMICAS
     def procesar(self, cmd):
         if self.bloqueado: return "BLOQUEADO. Ingrese la llave de seguridad."
         cmd_norm = cmd.lower().strip()
         
-        # Orquestación de sub-núcleos estructurados
         modulos = [
             self.defender_y_copiar, self.proteger_creador, self.resolver_matematicas_y_fisica,
             self.generar_algoritmo_contable, self.ejecutar_auto_mantenimiento_db, self.obtener_telemetria_hardware,
@@ -302,7 +309,6 @@ class AmitiOS:
         p = self.obtener_personalidad(cmd)
         if "se " in cmd_norm or "modo " in cmd_norm: return p
         
-        # 🤖 MATRIZ DE RESPUESTAS CONVERSACIONALES DE IA ASISTENTE (Fallback Inteligente)
         if any(h in cmd_norm for h in ["hola", "saludos", "buenas"]):
             return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y la base de datos Neon están en línea. ¿Qué cálculo, algoritmo o auditoría simulada ordenas hoy?"
             
@@ -315,11 +321,10 @@ class AmitiOS:
                 "📚 **Conocimiento:** Soporte en medicina (fisiopatología), inglés ('conjugacion') y memoria persistente ('aprende [dato]')."
             )
 
-        # Respuestas según temperamento si el texto es libre
         if p == "Combate/Fuego":
             return f"[Amiti OS - {p}]: Mensaje analizado de forma estricta. Ningún patrón crítico o comando macro detectado en el string. Manteniendo cortafuegos en alerta máxima."
         elif p == "Científico":
             return f"[Amiti OS - {p}]: Entrada procesada sin coincidencia algorítmica. Estructura lingüística libre detectada. Por favor, proporcione variables o comandos indexados."
         else:
             return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo de cálculo o desarrollo en él. Recuerda que puedes pedirme operaciones matemáticas combinadas o que genere código contable de forma directa y lo resolveré al instante. 🚀"
-                
+    
