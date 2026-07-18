@@ -4,17 +4,16 @@ import re
 import math
 import time
 import random
-import psycopg2  # <-- Migrado de sqlite3 a psycopg2 para Neon DB
+import psycopg2
 from psycopg2.extras import DictCursor
 import datetime
 import base64
-import ast
 
 class AmitiOS:
     def __init__(self):
         # Lee de forma automática el enlace de Neon guardado en el entorno de Render
         self.db_url = os.environ.get("DATABASE_URL")
-        self.bloqueado = True  # Inicia bloqueado hasta poner la llave "Amiti"
+        self.bloqueado = True  # Inicia bloqueado hasta recibir la llave "Amiti"
         self.inicio_sistema = time.time()
         self.armas_defensivas = []  # N07: Almacén de trazas de ataques bloqueados
         self._inicializar_db()
@@ -46,7 +45,7 @@ class AmitiOS:
                 )
             """)
             
-            # N08: Tabla de aprendizaje (Cambiado AUTOINCREMENT de SQLite por SERIAL de Postgres)
+            # N08: Tabla de aprendizaje continuo
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS aprendizaje (
                     id SERIAL PRIMARY KEY,
@@ -100,7 +99,7 @@ class AmitiOS:
             return f"Error de DB: {str(e)}"
 
     # N01: Personalidad Autónoma
-    def obtener_personalidad(self, entrada):
+    def obtener_personalidad(self, entrada=""):
         entrada_norm = entrada.lower()
         if "se agresiva" in entrada_norm or "modo combate" in entrada_norm:
             self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'modo_personalidad'", ("Combate/Fuego",), commit=True)
@@ -150,7 +149,7 @@ class AmitiOS:
             return f"[N04: ASISTENTE DE INVESTIGACIÓN] Escaneando redes globales de información sobre '{tema}'... Descargando papers académicos y optimizando almacenamiento en la base de datos en la nube."
         return None
 
-    # N05: Gestor de Códigos
+    # N05: Gestor de Códigos Básicos
     def autogenerar_mejoras(self, entrada):
         if "crea codigo" in entrada.lower() or "genera funcion" in entrada.lower():
             return (
@@ -169,7 +168,7 @@ class AmitiOS:
     def ejecutar_ataque_digital(self, entrada):
         if "ataca" in entrada.lower() or "derribar" in entrada.lower():
             objetivo = entrada.lower().replace("ataca", "").replace("derribar", "").strip()
-            return f"[N06: SISTEMA OFENSIVO (SIMULADO)] Iniciando análisis de vulnerabilidades en '{objetivo}'. Enviando paquetes virtuales ping..."
+            return f"[N06: SISTEMA OFENSIVO (SIMULADO)] Iniciando análisis de vulnerabilidades en '{objetivo}'. Enviando paquetes virtuales ping a los puertos lógicos..."
         return None
 
     # N07: Defensa y Contra-Ataque
@@ -178,7 +177,32 @@ class AmitiOS:
         for p in patrones_riesgosos:
             if re.search(p, comando, re.IGNORECASE):
                 self.armas_defensivas.append(comando)
-                return f"[N07: DEFENSA ACTIVA] ¡Intento de inyección detectado y bloqueado! Vector de ataque guardado en el almacén de seguridad."
+                return f"[N07: DEFENSA ACTIVA] ¡Intento de inyección o comando peligroso detectado y bloqueado! Vector guardado en el almacén de seguridad."
+        return None
+
+    # N08: Sistema de Aprendizaje Autónomo Persistente
+    def registrar_aprendizaje(self, entrada):
+        entrada_norm = entrada.lower()
+        if "aprende" in entrada_norm or "memoriza" in entrada_norm:
+            dato_util = entrada.replace("aprende", "").replace("memoriza", "").strip()
+            if not dato_util:
+                return "[N08: APRENDIZAJE] Especifica qué dato deseas que indexe en mi memoria."
+            
+            fecha_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._ejecutar_consulta(
+                "INSERT INTO aprendizaje (dato, fecha_registro) VALUES (%s, %s)", 
+                (dato_util, fecha_str), 
+                commit=True
+            )
+            self.incrementar_progreso(1)
+            return f"[N08: APRENDIZAJE] Registro indexado de forma autónoma en Neon DB: '{dato_util}' a las {fecha_str}."
+        
+        if "recuerda datos" in entrada_norm or "ver aprendizaje" in entrada_norm:
+            registros = self._ejecutar_consulta("SELECT dato, fecha_registro FROM aprendizaje ORDER BY id DESC LIMIT 5", fetchall=True)
+            if not registros:
+                return "[N08: APRENDIZAJE] Los clústeres de conocimiento están vacíos por ahora."
+            lista = "\n".join([f"• [{r[1]}] {r[0]}" for r in registros])
+            return f"[N08: APRENDIZAJE] Últimos conocimientos consolidados en mi base de datos:\n{lista}"
         return None
 
     # N09: Matemático y Física Lógica
@@ -217,17 +241,25 @@ class AmitiOS:
 
         return None
 
-    # N10: Encriptación y Compresión (Adaptado a Postgres UPSERT con ON CONFLICT)
-    def encriptar_y_comprimir(self, nombre, contenido):
-        contenido_bytes = contenido.encode('utf-8')
-        encriptado = base64.b64encode(contenido_bytes).decode('utf-8')
-        self._ejecutar_consulta("""
-            INSERT INTO biblioteca_oculta (nombre_archivo, contenido_encriptado, fecha_registro) 
-            VALUES (%s, %s, %s)
-            ON CONFLICT (nombre_archivo) 
-            DO UPDATE SET contenido_encriptado = EXCLUDED.contenido_encriptado, fecha_registro = EXCLUDED.fecha_registro
-        """, (nombre + ".vault", encriptado, str(datetime.datetime.now())), commit=True)
-        return f"[N10: ENCRIPCIÓN] Archivo '{nombre}' asegurado en la biblioteca oculta de Neon DB."
+    # N10: Encriptación y Compresión
+    def encriptar_y_comprimir(self, entrada):
+        if "encripta" in entrada.lower():
+            partes = entrada.split(":")
+            if len(partes) < 3:
+                return "[N10: ENCRIPCIÓN] Formato inválido. Usa: 'encripta:nombre_archivo:contenido del archivo'"
+            nombre = partes[1].strip()
+            contenido = partes[2].strip()
+            
+            contenido_bytes = contenido.encode('utf-8')
+            encriptado = base64.b64encode(contenido_bytes).decode('utf-8')
+            self._ejecutar_consulta("""
+                INSERT INTO biblioteca_oculta (nombre_archivo, contenido_encriptado, fecha_registro) 
+                VALUES (%s, %s, %s)
+                ON CONFLICT (nombre_archivo) 
+                DO UPDATE SET contenido_encriptado = EXCLUDED.contenido_encriptado, fecha_registro = EXCLUDED.fecha_registro
+            """, (nombre + ".vault", encriptado, str(datetime.datetime.now())), commit=True)
+            return f"[N10: ENCRIPCIÓN] Archivo '{nombre}.vault' asegurado y sincronizado con Neon DB."
+        return None
 
     # N11: Biblioteca de Archivos Ocultos
     def acceder_biblioteca_oculta(self, comando):
@@ -288,6 +320,30 @@ class AmitiOS:
             return True
         return False
 
+    # N16: Mantenimiento y Optimización Autónoma de Neon DB
+    def ejecutar_auto_mantenimiento_db(self, entrada):
+        if "optimiza base de datos" in entrada.lower() or "mantenimiento db" in entrada.lower():
+            self._ejecutar_consulta("ANALYZE memoria_general;", commit=True)
+            self._ejecutar_consulta("ANALYZE biblioteca_oculta;", commit=True)
+            self._ejecutar_consulta("ANALYZE aprendizaje;", commit=True)
+            return "[N16: MANTENIMIENTO AUTÓNOMO] Índices optimizados. Coincidencias de caché actualizadas en el clúster en la nube."
+        return None
+
+    # N17: Sub-núcleo Lingüístico Inteligente (Inglés Avanzado)
+    def modulo_linguistico_ingles(self, entrada):
+        entrada_norm = entrada.lower()
+        if "traduce" in entrada_norm:
+            frase = entrada.replace("traduce", "").strip()
+            return f"[N17: LINGÜÍSTICA] Modo traducción instantánea activado para analizar la estructura semántica de: '{frase}'."
+        elif "conjugacion" in entrada_norm or "verbo" in entrada_norm:
+            return (
+                "[N17: LINGÜÍSTICA] Tabla de referencia de verbos irregulares estructurada:\n"
+                "• Present: Go    | Past: Went    | Past Participle: Gone\n"
+                "• Present: Write | Past: Wrote   | Past Participle: Written\n"
+                "• Present: Build | Past: Built   | Past Participle: Built"
+            )
+        return None
+
     # N18: Control de Dispositivos 
     def controlar_dispositivo_simulado(self, entrada):
         entrada_norm = entrada.lower()
@@ -303,13 +359,14 @@ class AmitiOS:
             )
         return None
 
-    # [NUEVO] N19: Generador de Algoritmos Avanzados y Contabilidad Monetaria
+    # N19: Generador de Algoritmos Avanzados y Contabilidad Monetaria
     def generar_algoritmo_contable(self, entrada):
         entrada_norm = entrada.lower()
         if any(p in entrada_norm for p in ["crea algoritmo", "algoritmo de contabilidad", "sistema contable", "contabilidad monetaria"]):
             self.incrementar_progreso(2)
             return (
                 "[N19: ALGORITMOS Y CONTABILIDAD MONETARIA] Estructura transaccional y balance financiero generado:\n\n"
+                "```python\n"
                 "class MotorContableMonetario:\n"
                 "    def __init__(self, divisa_principal='USD'):\n"
                 "        self.divisa = divisa_principal\n"
@@ -319,76 +376,4 @@ class AmitiOS:
                 "    def registrar_movimiento(self, flujo, monto, motivo):\n"
                 "        \"\"\"Procesa y valida transacciones monetarias flotantes.\"\"\"\n"
                 "        monto_limpio = round(float(monto), 2)\n"
-                "        if flujo.lower() == 'ingreso':\n"
-                "            self.saldo_neto += monto_limpio\n"
-                "        elif flujo.lower() == 'egreso':\n"
-                "            self.saldo_neto -= monto_limpio\n"
-                "        else:\n"
-                "            return 'Error: Flujo monetario no identificado.'\n"
-                "            \n"
-                "        operacion = {\n"
-                "            'id_transaccion': len(self.historial) + 1,\n"
-                "            'flujo': flujo.upper(), 'monto': monto_limpio,\n"
-                "            'motivo': motivo, 'saldo_historico': round(self.saldo_neto, 2)\n"
-                "        }\n"
-                "        self.historial.append(operacion)\n"
-                "        return f'Éxito: {motivo} | {monto_limpio} {self.divisa} asentado.'\n"
-                "        \n"
-                "    def calcular_impuesto_retencion(self, tasa_iva=0.16):\n"
-                "        \"\"\"Aplica el cálculo fiscal inmediato sobre ingresos acumulados.\"\"\"\n"
-                "        ingresos_totales = sum(tx['monto'] for tx in self.historial if tx['flujo'] == 'INGRESO')\n"
-                "        return round(ingresos_totales * tasa_iva, 2)\n"
-                "        \n"
-                "    def generar_estado_financiero(self):\n"
-                "        return {\n"
-                "            'saldo_actual': round(self.saldo_neto, 2),\n"
-                "            'total_operaciones': len(self.historial),\n"
-                "            'moneda_auditoria': self.divisa\n"
-                "        }\n"
-            )
-        return None
-
-    # Métodos de Progreso y Evolución General
-    def obtener_progreso(self):
-        res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
-        return int(res[0]) if res else 45
-
-    def incrementar_progreso(self, cantidad):
-        prog_actual = self.obtener_progreso()
-        nuevo_prog = min(100, prog_actual + cantidad)
-        self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'progreso'", (str(nuevo_prog),), commit=True)
-        return nuevo_prog
-
-    # PROCESADOR DE ENTRADAS DEL CHAT CENTRAL
-    def procesar(self, cmd):
-        """Orquesta la ejecución lógica de todos los módulos y resuelve el bucle."""
-        if self.bloqueado:
-            return "BLOQUEADO. Ingrese la llave de seguridad para desbloquear."
-
-        defensa = self.defender_y_copiar(cmd)
-        if defensa:
-            return defensa
-
-        seguridad = self.proteger_creador(cmd)
-        if seguridad:
-            return seguridad
-
-        res_math = self.resolver_matematicas_y_fisica(cmd)
-        if res_math:
-            return res_math
-
-        res_algo = self.generar_algoritmo_contable(cmd)
-        if res_algo:
-            return res_algo
-
-        res_med = self.escanear_medicina(cmd)
-        if res_med:
-            return res_med
-
-        res_assist = self.asistencia_investigacion(cmd)
-        if res_assist:
-            return res_assist
-
-        res_hack = self.ejecutar_hackeo_remoto(cmd)
-        if res_hack:
-            return res_ha
+                "        if flujo.lower() == 'ingr
