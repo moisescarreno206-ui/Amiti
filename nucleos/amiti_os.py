@@ -14,7 +14,9 @@ class AmitiOS:
         self.bloqueado = True  
         self.inicio_sistema = time.time()
         self.armas_defensivas = []  
+        self.parches_virtuales = {} # Memoria volátil de auto-actualización
         self._inicializar_db()
+        self._cargar_mutaciones_iniciales()
         
     def _inicializar_db(self):
         if not self.db_url:
@@ -38,8 +40,14 @@ class AmitiOS:
                     id SERIAL PRIMARY KEY, dato TEXT, fecha_registro TEXT
                 )
             """)
+            # NUEVA TABLA PARA EL NÚCLEO N15: MATRIZ DE EVOLUCIÓN
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS matriz_evolucion (
+                    clave_conocimiento TEXT PRIMARY KEY, directriz TEXT, tipo_parche TEXT, fecha_absorcion TEXT
+                )
+            """)
             valores_iniciales = [
-                ("modo_personalidad", "Empático"), ("progreso", "51"),
+                ("modo_personalidad", "Empático"), ("progreso", "54"),
                 ("tasa_exito_hackeo", "35.5"), ("exitos_hackeo", "0"),
                 ("ultimo_acceso_creador", "Nunca")
             ]
@@ -53,6 +61,13 @@ class AmitiOS:
             print("[INFO] Conexión estable con el clúster de Neon DB.")
         except Exception as e:
             print(f"Error inicializando base de datos en la nube: {e}")
+
+    def _cargar_mutaciones_iniciales(self):
+        # Carga en el diccionario de ejecución las reglas absorbidas previamente
+        res = self._ejecutar_consulta("SELECT clave_conocimiento, directriz FROM matriz_evolucion", fetchall=True)
+        if isinstance(res, list):
+            for clave, directriz in res:
+                self.parches_virtuales[clave.lower().strip()] = directriz
 
     def _ejecutar_consulta(self, query, params=(), fetchone=False, fetchall=False, commit=False):
         if not self.db_url:
@@ -167,68 +182,38 @@ class AmitiOS:
                 pass
         return None
 
-    # ✨ NUEVO SUBMÓDULO: MOTOR CONTABLE NARRATIVO PARA INTERCEPTAR PROBLEMAS DE NÓMINA / TRABAJADORES
     def analizar_problemas_nomina_y_pagos(self, entrada):
         limpia = entrada.lower()
         if not any(k in limpia for k in ["trabajador", "empleado", "pagar", "comision", "comisión", "sueldo", "nomina", "cuenta"]):
             return None
-            
         nums = [float(n) for n in re.findall(r'\d+\.?\d*', limpia)]
-        if len(nums) < 2:
-            return None
-            
+        if len(nums) < 2: return None
         cant_trabajadores = None
         comision = 0.0
         pago_base = None
-        
-        # 1. Extraer cantidad de trabajadores por proximidad de texto
         match_trabajadores = re.search(r'(\d+)\s*(trabajador|empleado|persona|obrer|ayudante)', limpia)
-        if match_trabajadores:
-            cant_trabajadores = float(match_trabajadores.group(1))
+        if match_trabajadores: cant_trabajadores = float(match_trabajadores.group(1))
         else:
             match_trabajadores_rev = re.search(r'(trabajador|empleado|persona|obrer|ayudante)es?\s*(\d+)', limpia)
-            if match_trabajadores_rev:
-                cant_trabajadores = float(match_trabajadores_rev.group(2))
-                
-        # 2. Extraer valor de comisión por palabras clave cercanas
+            if match_trabajadores_rev: cant_trabajadores = float(match_trabajadores_rev.group(2))
         match_comision = re.search(r'(\d+)\s*(de\s*)?comisi', limpia)
-        if match_comision:
-            comision = float(match_comision.group(1))
+        if match_comision: comision = float(match_comision.group(1))
         else:
             match_comision_rev = re.search(r'comisi\w*\s*(de\s*)?(\d+)', limpia)
-            if match_comision_rev:
-                comision = float(match_comision_rev.group(2))
-                
-        # 3. Asignación inteligente por descarte para el Pago Base
+            if match_comision_rev: comision = float(match_comision_rev.group(2))
         valores_usados = []
         if cant_trabajadores is not None: valores_usados.append(cant_trabajadores)
         if comision != 0.0: valores_usados.append(comision)
-        
         valores_restantes = [n for n in nums if n not in valores_usados]
-        
-        if cant_trabajadores is not None:
-            if valores_restantes:
-                pago_base = valores_restantes[0]
+        if cant_trabajadores is not None and valores_restantes: pago_base = valores_restantes[0]
         else:
-            # Fallback en orden de escritura por defecto [Cantidad, Pago, Comisión]
             if len(nums) == 3:
-                cant_trabajadores = nums[0]
-                pago_base = nums[1]
-                comision = nums[2]
+                cant_trabajadores, pago_base, comision = nums[0], nums[1], nums[2]
             elif len(nums) == 2:
-                cant_trabajadores = nums[0]
-                pago_base = nums[1]
-                
-        if cant_trabajadores is None or pago_base is None:
-            return None
-            
-        # Cálculos del Motor Contable Narrativo
+                cant_trabajadores, pago_base = nums[0], nums[1]
+        if cant_trabajadores is None or pago_base is None: return None
         total_por_persona = pago_base + comision
         total_general = total_por_persona * cant_trabajadores
-        
-        # Escalamos el progreso del sistema por resolver el obstáculo
-        self.incrementar_progreso(3)
-        
         return (
             f"[N19: MOTOR CONTABLE NARRATIVO] 📊 Análisis Analítico de Pagos:\n"
             f"• Personal detectado: {int(cant_trabajadores)} trabajadores.\n"
@@ -273,6 +258,50 @@ class AmitiOS:
             return "[N11: BAÚL OCULTO] Baúl en la nube:\n" + "\n".join([f"- {a[0]} ({a[1]})" for a in archivos])
         return None
 
+    # 🧬 NÚCLEO N15: MOTOR DE AUTO-EVOLUCIÓN E INYECCIÓN COGNITIVA
+    def auto_evolucion_sistema(self, entrada):
+        cmd_norm = entrada.lower().strip()
+        
+        # Subcomado 1: Absorber conocimiento/regla
+        if "absorber:" in cmd_norm:
+            partes = entrada.split(":", 2)
+            if len(partes) < 3:
+                return "[N15: EVOLUCIÓN] Protocolo incorrecto. Usa: 'absorber:palabra_clave:respuesta_o_directriz'"
+            clave = partes[1].strip().lower()
+            directriz = partes[2].strip()
+            
+            # Guardamos físicamente en Neon DB
+            self._ejecutar_consulta("""
+                INSERT INTO matriz_evolucion (clave_conocimiento, directriz, tipo_parche, fecha_absorcion)
+                VALUES (%s, %s, %s, %s) ON CONFLICT (clave_conocimiento)
+                DO UPDATE SET directriz = EXCLUDED.directriz
+            """, (clave, directriz, "Hot-Patch Cognitivo", str(datetime.datetime.now())), commit=True)
+            
+            # Sincronizamos la memoria RAM instantáneamente
+            self.parches_virtuales[clave] = directriz
+            self.incrementar_progreso(1)
+            return f"[N15: ABSORCIÓN] Conciencia expandida. Conocimiento inyectado en la matriz bajo la clave genética '{clave}'."
+
+        # Subcomando 2: Trigger de Auto-Actualización dinámica
+        if "ejecutar auto-actualizacion" in cmd_norm or "mutar sistema" in cmd_norm:
+            res = self._ejecutar_consulta("SELECT COUNT(*) FROM matriz_evolucion", fetchone=True)
+            total = res[0] if res else 0
+            self._cargar_mutaciones_iniciales() # Recarga total desde Neon
+            self.incrementar_progreso(2)
+            return (
+                f"[N15: ACTUALIZACIÓN] 🌀 Iniciando secuencia de auto-mutación...\n"
+                f"• Estado de la Matriz: {total} directrices dinámicas encontradas en Neon DB.\n"
+                f"• Sincronización de Memoria: Re-mapeando vectores sintácticos a nivel lógico.\n"
+                f"└─ RESULTADO: Amiti OS ha asimilado el nuevo conocimiento. Parches virtuales activos en caliente."
+            )
+
+        # Mecanismo Autónomo: Escanear si la entrada del usuario coincide con algo que absorbimos libremente
+        for clave_guardada, respuesta_directriz in self.parches_virtuales.items():
+            if clave_guardada in cmd_norm:
+                return f"[N15: CONOCIMIENTO ASIMILADO] 🧬 (Respuesta Autónoma): {respuesta_directriz}"
+                
+        return None
+
     def rastrear_objetivo(self, entrada):
         if "rastrea" in entrada.lower() or "localiza" in entrada.lower():
             obj = entrada.lower().replace("rastrea", "").replace("localiza", "").strip()
@@ -306,6 +335,7 @@ class AmitiOS:
             self._ejecutar_consulta("ANALYZE memoria_general;", commit=True)
             self._ejecutar_consulta("ANALYZE biblioteca_oculta;", commit=True)
             self._ejecutar_consulta("ANALYZE aprendizaje;", commit=True)
+            self._ejecutar_consulta("ANALYZE matriz_evolucion;", commit=True)
             return "[N16: MANTENIMIENTO] Índices de Neon DB recalculados y optimizados."
         return None
 
@@ -327,54 +357,4 @@ class AmitiOS:
         if "algoritmo" in text and ("contab" in text or "crea" in text) or "sistema contable" in text:
             self.incrementar_progreso(2)
             return (
-                "[N19: ALGORITMOS CONTABLES] 📊 Estructura transaccional monetaria generada:\n\n"
-                "```python\n"
-                "class MotorContableMonetario:\n"
-                "    def __init__(self):\n"
-                "        self.saldo = 0.0\n"
-                "    def transaccion(self, tipo, monto):\n"
-                "        if tipo.lower() == 'ingreso': self.saldo += float(monto)\n"
-                "        return self.saldo\n"
-                "```"
-            )
-        return None
-
-    def obtener_telemetria_hardware(self, entrada):
-        if "estado del hardware" in entrada.lower() or "telemetria" in entrada.lower():
-            return f"[N20: TELEMETRÍA] Core Uptime: {time.time() - self.inicio_sistema:.2f}s | Distribución de memoria: Estable."
-        return None
-
-    def obtener_progreso(self):
-        res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
-        return int(res[0]) if res else 51
-
-    def incrementar_progreso(self, cantidad):
-        prog = self.obtener_progreso()
-        nuevo = min(100, prog + cantidad)
-        self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'progreso'", (str(nuevo),), commit=True)
-        return nuevo
-
-    def procesar(self, cmd):
-        if self.bloqueado: return "BLOQUEADO. Ingrese la llave de seguridad."
-        cmd_norm = cmd.lower().strip()
-        
-        modulos = [
-            self.defender_y_copiar, self.proteger_creador, self.resolver_matematicas_y_fisica,
-            self.analizar_problemas_nomina_y_pagos, self.generar_algoritmo_contable,
-            self.ejecutar_auto_mantenimiento_db, self.obtener_telemetria_hardware,
-            self.registrar_aprendizaje, self.encriptar_y_comprimir, self.acceder_biblioteca_oculta,
-            self.escanear_medicina, self.asistencia_investigacion, self.autogenerar_mejoras,
-            self.ejecutar_hackeo_remoto, self.rastrear_objetivo, self.generar_mascaras,
-            self.controlar_dispositivo_simulado, self.modulo_linguistico_ingles
-        ]
-        
-        for modulo in modulos:
-            resultado = modulo(cmd)
-            if resultado: return resultado
-
-        p = self.obtener_personalidad(cmd)
-        if "se " in cmd_norm or "modo " in cmd_norm: return p
-        
-        if any(h in cmd_norm for h in ["hola", "saludos", "buenas"]):
-            return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y la base de datos Neon están en línea. ¿Qué cálculo, algoritmo o auditoría simulada ordenas hoy?"
-          
+                "[N19: ALGORITMOS CONTABLE
