@@ -81,8 +81,10 @@ class AmitiOS:
     def ejecutar_ataque_digital(self, e):
         t = e.lower()
         if any(k in t for k in ["ataca", "contraataque", "elimina amenaza", "destruir"]):
-            obj = e.replace("ataca","").replace("contraataque","").replace("destruir","").strip()
+            # Solución Regex: Limpia el comando ignorando mayúsculas y minúsculas de forma exacta
+            obj = re.sub(r'(ataca|contraataque|elimina amenaza|destruir)', '', e, flags=re.IGNORECASE).strip()
             obj = obj if obj else "Entidad Invasora Desconocida"
+            
             tacticas = ["Inyección de Ruido Blanco y Desbordamiento Lógico", "Espejo de Bucle Infinito (Honeypot Cuántico)", "Sobrecarga Síncrona de Cifrado (Trampa de Datos)", "Purga de Paquetes y Falsificación de Host"]
             ataque_elegido = random.choice(tacticas)
             self.incrementar_progreso(2)
@@ -183,7 +185,7 @@ class AmitiOS:
             self._cargar_mutaciones_iniciales(); self.incrementar_progreso(2)
             return f"[N15: ACTUALIZACIÓN] 🌀 Secuencia de auto-mutación completa.\n• Estado de la Matriz: {res[0] if res else 0} directrices dinámicas cargadas desde Neon DB."
         for k, d in self.parches_virtuales.items():
-            if k in cn: return f"[N15: CONOCIMIENTO ASIMILADO] 🧬 (Respuesta Autonomous): {d}"
+            if k in cn: return f"[N15: CONOCIMIENTO ASIMILADO] 🧬 (Respuesta Autónoma): {d}"
         return None
 
     def rastrear_objetivo(self, e):
@@ -208,7 +210,7 @@ class AmitiOS:
 
     def ejecutar_auto_mantenimiento_db(self, e):
         if "optimiza base de datos" in e.lower() or "mantenimiento db" in e.lower():
-            # Corregido aquí: "bibliulta" -> "biblioteca_oculta"
+            # Solución de Mantenimiento: "bibliulta" corregido a "biblioteca_oculta"
             for t in ["memoria_general", "biblioteca_oculta", "aprendizaje", "matriz_evolucion"]: self._ejecutar_consulta(f"ANALYZE {t};", commit=True)
             return "[N16: MANTENIMIENTO] Índices de Neon DB recalculados y optimizados."
         return None
@@ -261,4 +263,4 @@ class AmitiOS:
         if any(h in cn for h in ["hola", "saludos", "buenas"]): return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y Neon DB están en línea."
         if any(a in cn for a in ["ayuda", "que puedes hacer", "funciones"]): return f"[Amiti OS - {p}]: 🤖 Capacidades: Cálculos de nóminas narrativas, Auto-Evolución N15, Ciberseguridad y Neon DB."
         return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo. Recuerda que puedes pedirme operaciones matemáticas o que genere código contable. 🚀"
-        
+            
