@@ -298,4 +298,4 @@ class AmitiOS:
 
     def incrementar_progreso(self, cant):
         n = min(100, self.obtener_progreso() + cant)
-        self._ejecutar_consulta("UPDATE me
+        self._ejecutar_consulta("UPDATE me)
