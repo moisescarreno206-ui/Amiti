@@ -78,7 +78,7 @@ class AmitiOS:
         return None
 
     # 🌐 NÚCLEO N04 RECONSTRUIDO: BÚSQUEDA Y EXTRACCIÓN WEB REAL
-            def _buscar_wikipedia(self, consulta):
+                def _buscar_wikipedia(self, consulta):
         import urllib.request
         import urllib.parse
         import json
@@ -167,8 +167,6 @@ class AmitiOS:
             pass
 
         return f"[N04: INVESTIGACIÓN] No se encontraron resultados válidos sobre '{tema}'."
-        
-
 
     def ejecutar_ataque_digital(self, e):
         t = e.lower()
