@@ -19,7 +19,7 @@ class AmitiOS:
             cursor.execute("CREATE TABLE IF NOT EXISTS biblioteca_oculta (nombre_archivo TEXT PRIMARY KEY, contenido_encriptado TEXT, fecha_registro TEXT)")
             cursor.execute("CREATE TABLE IF NOT EXISTS aprendizaje (id SERIAL PRIMARY KEY, dato TEXT, fecha_registro TEXT)")
             cursor.execute("CREATE TABLE IF NOT EXISTS matriz_evolucion (clave_conocimiento TEXT PRIMARY KEY, directriz TEXT, tipo_parche TEXT, fecha_absorcion TEXT)")
-            for k, v in [("modo_personalidad", "Empático"), ("progreso", "54"), ("tasa_exito_hackeo", "35.5"), ("exitos_hackeo", "0"), ("ultimo_acceso_creador", "Nunca")]:
+            for k, v in [("modo_personalidad", "Empático"), ("progreso", "59"), ("tasa_exito_hackeo", "35.5"), ("exitos_hackeo", "0"), ("ultimo_acceso_creador", "Nunca")]:
                 cursor.execute("INSERT INTO memoria_general (clave, valor) VALUES (%s, %s) ON CONFLICT (clave) DO NOTHING", (k, v))
             conn.commit(); conn.close()
         except Exception as e: print(f"Error DB: {e}")
@@ -95,9 +95,12 @@ class AmitiOS:
             self._ejecutar_consulta("INSERT INTO aprendizaje (dato, fecha_registro) VALUES (%s, %s)", (d, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")), commit=True)
             self.incrementar_progreso(1)
             return f"[N08: APRENDIZAJE] Conocimiento indexado con éxito: '{d}'."
-        if "recuerda datos" in t or "ver aprendizaje" in t:
+        if any(k in t for k in ["recuerda", "aprendiste", "aprendizaje"]):
             reg = self._ejecutar_consulta("SELECT dato, fecha_registro FROM aprendizaje ORDER BY id DESC LIMIT 5", fetchall=True)
-            return "[N08: MEMORIA]\n" + "\n".join([f"• [{r[1]}] {r[0]}" for r in reg]) if reg else "[N08: APRENDIZAJE] Clústeres vacíos."
+            mat = self._ejecutar_consulta("SELECT COUNT(*) FROM matriz_evolucion", fetchone=True)
+            tot_m = mat[0] if mat else 0
+            txt = "[N08: MEMORIA]\n" + "\n".join([f"• [{r[1]}] {r[0]}" for r in reg]) if reg else "[N08: MEMORIA] Registro de aprendizaje libre vacío."
+            return f"{txt}\n\n[N15: MATRIZ DE EVOLUCIÓN]\n• Directrices dinámicas en Neon DB: {tot_m}"
         return None
 
     def resolver_matematicas_y_fisica(self, e):
@@ -223,7 +226,7 @@ class AmitiOS:
 
     def obtener_progreso(self):
         res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
-        return int(res[0]) if res else 54
+        return int(res[0]) if res else 59
 
     def incrementar_progreso(self, cant):
         n = min(100, self.obtener_progreso() + cant)
@@ -249,3 +252,4 @@ class AmitiOS:
         if any(h in cn for h in ["hola", "saludos", "buenas"]): return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y Neon DB están en línea."
         if any(a in cn for a in ["ayuda", "que puedes hacer", "funciones"]): return f"[Amiti OS - {p}]: 🤖 Capacidades: Cálculos de nóminas narrativas, Auto-Evolución N15, Ciberseguridad y Neon DB."
         return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo. Recuerda que puedes pedirme operaciones matemáticas o que genere código contable. 🚀"
+                   
