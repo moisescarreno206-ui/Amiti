@@ -7,7 +7,6 @@ class AmitiOS:
         self.bloqueado = True  
         self.inicio_sistema = time.time()
         self.armas_defensivas, self.parches_virtuales = [], {}
-        self.objetivo_fijado = "Entidad Invasora Desconocida"  # Sistema Lock-On en memoria inicializado
         self._inicializar_db()
         self._cargar_mutaciones_iniciales()
         
@@ -20,7 +19,17 @@ class AmitiOS:
             cursor.execute("CREATE TABLE IF NOT EXISTS biblioteca_oculta (nombre_archivo TEXT PRIMARY KEY, contenido_encriptado TEXT, fecha_registro TEXT)")
             cursor.execute("CREATE TABLE IF NOT EXISTS aprendizaje (id SERIAL PRIMARY KEY, dato TEXT, fecha_registro TEXT)")
             cursor.execute("CREATE TABLE IF NOT EXISTS matriz_evolucion (clave_conocimiento TEXT PRIMARY KEY, directriz TEXT, tipo_parche TEXT, fecha_absorcion TEXT)")
-            for k, v in [("modo_personalidad", "Empático"), ("progreso", "59"), ("tasa_exito_hackeo", "35.5"), ("exitos_hackeo", "0"), ("ultimo_acceso_creador", "Nunca")]:
+            
+            # Agregado 'objetivo_fijado' de forma nativa en la base de datos
+            valores_iniciales = [
+                ("modo_personalidad", "Empático"), 
+                ("progreso", "59"), 
+                ("tasa_exito_hackeo", "35.5"), 
+                ("exitos_hackeo", "0"), 
+                ("ultimo_acceso_creador", "Nunca"),
+                ("objetivo_fijado", "Entidad Invasora Desconocida")
+            ]
+            for k, v in valores_iniciales:
                 cursor.execute("INSERT INTO memoria_general (clave, valor) VALUES (%s, %s) ON CONFLICT (clave) DO NOTHING", (k, v))
             conn.commit(); conn.close()
         except Exception as e: print(f"Error DB: {e}")
@@ -82,30 +91,32 @@ class AmitiOS:
     def ejecutar_ataque_digital(self, e):
         t = e.lower()
         
-        # SUB-NÚCLEO: Lock-On (Fijar Objetivo persistentemente)
-        if "fija" in t or "fijar" in t and "objetivo" in t:
-            obj = re.sub(r'(fija objetivo|fijar objetivo|fija el objetivo|fijar el objetivo|:)', '', e, flags=re.IGNORECASE).strip()
-            # Limpia conectores en español al principio de la cadena
+        # SUB-NÚCLEO: Lock-On (Fijar Objetivo en Neon DB)
+        if any(k in t for k in ["fija", "fijar", "objetivo", "lock-on"]):
+            # Remueve comandos comunes y limpia la cadena
+            obj = re.sub(r'(fija objetivo|fijar objetivo|fija el objetivo|fijar el objetivo|fija|fijar|objetivo|:)', '', e, flags=re.IGNORECASE).strip()
+            # Remueve conectores del español al inicio
             obj = re.sub(r'^(a\s+la\s+|a\s+los\s+|a\s+|al\s+|el\s+|la\s+|los\s+|las\s+)', '', obj, flags=re.IGNORECASE).strip()
+            
             if obj:
-                self.objetivo_fijado = obj
-                return f"[N06: LOCK-ON SYSTEM] 🎯 Sistema de rastreo fijado en: '{self.objetivo_fijado}'."
-            return "[N06: LOCK-ON SYSTEM] Especifica una IP, host o entidad para fijar en la mira."
+                self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'objetivo_fijado'", (obj,), commit=True)
+                return f"[N06: LOCK-ON SYSTEM] 🎯 Objetivo grabado de forma persistente en Neon DB: '{obj}'."
+            return "[N06: LOCK-ON SYSTEM] Especifica una IP, host o entidad para poner en la mira."
 
         # SUB-NÚCLEO: Ejecución de Ofensiva
         if any(k in t for k in ["ataca", "contraataque", "elimina amenaza", "destruir"]):
-            # Limpia el comando básico
             obj = re.sub(r'(ataca|contraataque|elimina amenaza|destruir)', '', e, flags=re.IGNORECASE).strip()
-            # Limpia conectores gramaticales sobrantes
             obj = re.sub(r'^(a\s+la\s+|a\s+los\s+|a\s+|al\s+|el\s+|la\s+|los\s+|las\s+)', '', obj, flags=re.IGNORECASE).strip()
             
-            # Prioridad: Si especificas un objetivo en el comando lo usa, de lo contrario usa el guardado en Lock-On
-            target = obj if obj else self.objetivo_fijado
+            # Si el comando actual está vacío, extrae el objetivo guardado en la base de datos
+            if not obj:
+                res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'objetivo_fijado'", fetchone=True)
+                obj = res[0] if res else "Entidad Invasora Desconocida"
             
             tacticas = ["Inyección de Ruido Blanco y Desbordamiento Lógico", "Espejo de Bucle Infinito (Honeypot Cuántico)", "Sobrecarga Síncrona de Cifrado (Trampa de Datos)", "Purga de Paquetes y Falsificación de Host"]
             ataque_elegido = random.choice(tacticas)
             self.incrementar_progreso(2)
-            return f"[N06: CONTRAATAQUE OFENSIVO ACTIVO] ⚔️\n🔥 OBJETIVO FIJADO: '{target}'\n└─ Desplegando: {ataque_elegido}\n└─ Estado: Desmantelando vectores del virus, aislando su IP en la lista negra de Neon DB y ejecutando purga de código malicioso."
+            return f"[N06: CONTRAATAQUE OFENSIVO ACTIVO] ⚔️\n🔥 OBJETIVO FIJADO: '{obj}'\n└─ Desplegando: {ataque_elegido}\n└─ Estado: Desmantelando vectores del virus, aislando su IP en la lista negra de Neon DB y ejecutando purga de código malicioso."
         return None
 
     def defender_y_copiar(self, c):
@@ -279,3 +290,4 @@ class AmitiOS:
         if any(h in cn for h in ["hola", "saludos", "buenas"]): return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y Neon DB están en línea."
         if any(a in cn for a in ["ayuda", "que puedes hacer", "funciones"]): return f"[Amiti OS - {p}]: 🤖 Capacidades: Cálculos de nóminas narrativas, Auto-Evolución N15, Ciberseguridad y Neon DB."
         return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo. Recuerda que puedes pedirme operaciones matemáticas o que genere código contable. 🚀"
+                                
