@@ -78,48 +78,97 @@ class AmitiOS:
         return None
 
     # 🌐 NÚCLEO N04 RECONSTRUIDO: BÚSQUEDA Y EXTRACCIÓN WEB REAL
-    def asistencia_investigacion(self, c):
-        if "investiga" in c.lower() or "busca" in c.lower():
-            t = re.sub(r'^(investiga|busca|investigar|buscar)\s*', '', c, flags=re.IGNORECASE).strip()
-            if not t:
-                return "[N04: INVESTIGACIÓN] Especifica un término o pregunta para rastrear en la red."
+            def _buscar_wikipedia(self, consulta):
+        import urllib.request
+        import urllib.parse
+        import json
+        try:
+            query_encoded = urllib.parse.quote(consulta.strip())
+            url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{query_encoded}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'AmitiOS/1.0 (Bot Educativo Python)'})
             
-            try:
-                # Ejecuta búsqueda real en la web
-                resultados = list(DDGS().text(t, max_results=2))
-                if resultados:
-                    primer_res = resultados[0]
-                    titulo = primer_res.get('title', 'Sin título')
-                    resumen = primer_res.get('body', 'Sin contenido disponible.')
-                    url = primer_res.get('href', '#')
-                    
-                    # Guardado automático en Neon DB
-                    dato_db = f"[INVESTIGACIÓN WEB] '{t}': {resumen}"
-                    self._ejecutar_consulta(
-                        "INSERT INTO aprendizaje (dato, fecha_registro) VALUES (%s, %s)", 
-                        (dato_db, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")), 
-                        commit=True
-                    )
-                    
-                    p_actual = self.incrementar_progreso(2)
-                    return (
-                        f"[N04: INVESTIGACIÓN WEB REAL] 🌐\n"
-                        f"🔎 **Consulta:** '{t}'\n"
-                        f"📌 **Origen:** {titulo}\n"
-                        f"📄 **Resumen Extraído:** {resumen}\n"
-                        f"🔗 **Fuente:** {url}\n\n"
-                        f"💾 *Información indexada automáticamente en Neon DB.*\n"
-                        f"[⚙️ TELEMETRÍA: +2% de Progreso por Investigación Web | Total Core: {p_actual}%]"
-                    )
-                else:
-                    return f"[N04: INVESTIGACIÓN] No se encontraron resultados públicos sobre '{t}'."
-            except Exception as err:
-                return f"[N04: INVESTIGACIÓN] Error en la extracción web: {str(err)}"
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    if data.get('type') in ['standard', 'disambiguation'] and 'extract' in data:
+                        return {
+                            'titulo': data.get('title', consulta),
+                            'origen': 'Wikipedia Enciclopedia',
+                            'resumen': data.get('extract', ''),
+                            'url': data.get('content_urls', {}).get('desktop', {}).get('page', 'https://es.wikipedia.org')
+                        }
+        except Exception:
+            return None
         return None
 
-    def autogenerar_mejoras(self, e):
-        if "genera funcion" in e.lower() or "desarrolla funcion" in e.lower(): return "[N05: AUTO-DESARROLLADOR] Estructura modular generada:\n\ndef nueva_funcion_amiti(*args):\n    return sum(args)"
-        return None
+    def asistencia_investigacion(self, e):
+        cn = e.lower().strip()
+        if not cn.startswith("investiga "):
+            return None
+        
+        tema = e[10:].strip()
+        if not tema:
+            return "[N04: INVESTIGACIÓN] Debe especificar un tema. Ejemplo: 'Investiga computacion cuantica'."
+
+        # CAPA 1: Búsqueda Enciclopédica (Wikipedia API - Sin bloqueos)
+        res_wiki = self._buscar_wikipedia(tema)
+        if res_wiki and res_wiki['resumen']:
+            self._ejecutar_consulta(
+                "INSERT INTO aprendizaje (concepto, timestamp) VALUES (%s, NOW())", 
+                (f"Investigación (Wiki): {res_wiki['titulo']} - {res_wiki['resumen'][:200]}...",), 
+                commit=True
+            )
+            progreso = self.incrementar_progreso(2)
+            return (
+                f"[N04: INVESTIGACIÓN ENCICLOPÉDICA] 📚\n"
+                f"🔎 **Consulta:** '{tema}'\n"
+                f"📌 **Origen:** {res_wiki['origen']} ({res_wiki['titulo']})\n"
+                f"📄 **Resumen Extraído:** {res_wiki['resumen']}\n"
+                f"🔗 **Fuente:** {res_wiki['url']}\n\n"
+                f"💾 *Información indexada automáticamente en Neon DB.*\n"
+                f"[⚙️ TELEMETRÍA: +2% de Progreso por Investigación | Total Core: {progreso}%]"
+            )
+
+        # CAPA 2: Búsqueda Web Abierta con Filtro de Dominios
+        try:
+            from duckduckgo_search import DDGS
+            results = list(DDGS().text(tema, max_results=5))
+            
+            dominios_descartar = ['walmart.com', 'amazon.com', 'ebay.com', 'aliexpress.com', 'shopping']
+            resultado_valido = None
+            
+            for r in results:
+                href = r.get('href', '').lower()
+                if not any(d in href for d in dominios_descartar):
+                    resultado_valido = r
+                    break
+            
+            if resultado_valido:
+                origen = resultado_valido.get('title', 'Fuente Web')
+                resumen = resultado_valido.get('body', 'Sin resumen.')
+                fuente = resultado_valido.get('href', '')
+                
+                self._ejecutar_consulta(
+                    "INSERT INTO aprendizaje (concepto, timestamp) VALUES (%s, NOW())", 
+                    (f"Investigación Web: {tema} - {resumen[:200]}...",), 
+                    commit=True
+                )
+                progreso = self.incrementar_progreso(2)
+                return (
+                    f"[N04: INVESTIGACIÓN WEB REAL] 🌐\n"
+                    f"🔎 **Consulta:** '{tema}'\n"
+                    f"📌 **Origen:** {origen}\n"
+                    f"📄 **Resumen Extraído:** {resumen}\n"
+                    f"🔗 **Fuente:** {fuente}\n\n"
+                    f"💾 *Información indexada automáticamente en Neon DB.*\n"
+                    f"[⚙️ TELEMETRÍA: +2% de Progreso por Investigación | Total Core: {progreso}%]"
+                )
+        except Exception:
+            pass
+
+        return f"[N04: INVESTIGACIÓN] No se encontraron resultados válidos sobre '{tema}'."
+        
+
 
     def ejecutar_ataque_digital(self, e):
         t = e.lower()
