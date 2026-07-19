@@ -20,7 +20,6 @@ class AmitiOS:
             cursor.execute("CREATE TABLE IF NOT EXISTS aprendizaje (id SERIAL PRIMARY KEY, dato TEXT, fecha_registro TEXT)")
             cursor.execute("CREATE TABLE IF NOT EXISTS matriz_evolucion (clave_conocimiento TEXT PRIMARY KEY, directriz TEXT, tipo_parche TEXT, fecha_absorcion TEXT)")
             
-            # Agregado 'objetivo_fijado' de forma nativa en la base de datos
             valores_iniciales = [
                 ("modo_personalidad", "Empático"), 
                 ("progreso", "59"), 
@@ -80,8 +79,8 @@ class AmitiOS:
     def asistencia_investigacion(self, c):
         if "investiga" in c.lower() or "busca" in c.lower():
             t = c.lower().replace("investiga","").replace("busca","").strip()
-            self.incrementar_progreso(2)
-            return f"[N04: INVESTIGACIÓN] Escaneando redes globales sobre '{t}' e indexando información en Neon DB."
+            p_actual = self.incrementar_progreso(2)
+            return f"[N04: INVESTIGACIÓN] Escaneando redes globales sobre '{t}' e indexando información en Neon DB.\n\n[⚙️ TELEMETRÍA: +2% de Progreso por Indexación de Red | Total Core: {p_actual}%]"
         return None
 
     def autogenerar_mejoras(self, e):
@@ -91,11 +90,8 @@ class AmitiOS:
     def ejecutar_ataque_digital(self, e):
         t = e.lower()
         
-        # SUB-NÚCLEO: Lock-On (Fijar Objetivo en Neon DB)
         if any(k in t for k in ["fija", "fijar", "objetivo", "lock-on"]):
-            # Remueve comandos comunes y limpia la cadena
             obj = re.sub(r'(fija objetivo|fijar objetivo|fija el objetivo|fijar el objetivo|fija|fijar|objetivo|:)', '', e, flags=re.IGNORECASE).strip()
-            # Remueve conectores del español al inicio
             obj = re.sub(r'^(a\s+la\s+|a\s+los\s+|a\s+|al\s+|el\s+|la\s+|los\s+|las\s+)', '', obj, flags=re.IGNORECASE).strip()
             
             if obj:
@@ -103,20 +99,20 @@ class AmitiOS:
                 return f"[N06: LOCK-ON SYSTEM] 🎯 Objetivo grabado de forma persistente en Neon DB: '{obj}'."
             return "[N06: LOCK-ON SYSTEM] Especifica una IP, host o entidad para poner en la mira."
 
-        # SUB-NÚCLEO: Ejecución de Ofensiva
         if any(k in t for k in ["ataca", "contraataque", "elimina amenaza", "destruir"]):
             obj = re.sub(r'(ataca|contraataque|elimina amenaza|destruir)', '', e, flags=re.IGNORECASE).strip()
             obj = re.sub(r'^(a\s+la\s+|a\s+los\s+|a\s+|al\s+|el\s+|la\s+|los\s+|las\s+)', '', obj, flags=re.IGNORECASE).strip()
             
-            # Si el comando actual está vacío, extrae el objetivo guardado en la base de datos
             if not obj:
                 res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'objetivo_fijado'", fetchone=True)
                 obj = res[0] if res else "Entidad Invasora Desconocida"
             
             tacticas = ["Inyección de Ruido Blanco y Desbordamiento Lógico", "Espejo de Bucle Infinito (Honeypot Cuántico)", "Sobrecarga Síncrona de Cifrado (Trampa de Datos)", "Purga de Paquetes y Falsificación de Host"]
             ataque_elegido = random.choice(tacticas)
-            self.incrementar_progreso(2)
-            return f"[N06: CONTRAATAQUE OFENSIVO ACTIVO] ⚔️\n🔥 OBJETIVO FIJADO: '{obj}'\n└─ Desplegando: {ataque_elegido}\n└─ Estado: Desmantelando vectores del virus, aislando su IP en la lista negra de Neon DB y ejecutando purga de código malicioso."
+            
+            # Incremento con telemetría visual de combate
+            p_actual = self.incrementar_progreso(2)
+            return f"[N06: CONTRAATAQUE OFENSIVO ACTIVO] ⚔️\n🔥 OBJETIVO FIJADO: '{obj}'\n└─ Desplegando: {ataque_elegido}\n└─ Estado: Desmantelando vectores del virus, aislando su IP en la lista negra de Neon DB y executing purga de código malicioso.\n\n[⚙️ AUTO-ACTUALIZACIÓN: +2% de Progreso por Despliegue de Combate | Total Core: {p_actual}%]"
         return None
 
     def defender_y_copiar(self, c):
@@ -127,11 +123,14 @@ class AmitiOS:
     def registrar_aprendizaje(self, e):
         t = e.lower()
         if "aprende" in t or "memoriza" in t:
-            d = e.replace("aprende","").replace("memoriza","").strip()
+            d = re.sub(r'^(aprende\s*:\s*|memoriza\s*:\s*|aprende\s+|memoriza\s+)', '', e, flags=re.IGNORECASE).strip()
             if not d: return "[N08: APRENDIZAJE] Especifica el dato a indexar."
             self._ejecutar_consulta("INSERT INTO aprendizaje (dato, fecha_registro) VALUES (%s, %s)", (d, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")), commit=True)
-            self.incrementar_progreso(1)
-            return f"[N08: APRENDIZAJE] Conocimiento indexado con éxito: '{d}'."
+            
+            # Incremento con telemetría visual de aprendizaje
+            p_actual = self.incrementar_progreso(1)
+            return f"[N08: APRENDIZAJE] Conocimiento indexado con éxito en Neon DB: '{d}'.\n\n[🧠 APRENDIZAJE INTEGRADO: +1% de Progreso por Almacenamiento de Datos | Total Core: {p_actual}%]"
+        
         if any(k in t for k in ["recuerda", "aprendiste", "aprendizaje"]):
             reg = self._ejecutar_consulta("SELECT dato, fecha_registro FROM aprendizaje ORDER BY id DESC LIMIT 5", fetchall=True)
             mat = self._ejecutar_consulta("SELECT COUNT(*) FROM matriz_evolucion", fetchone=True)
@@ -206,12 +205,18 @@ class AmitiOS:
             if len(p) < 3: return "[N15: EVOLUCIÓN] Protocolo incorrecto. Usa: 'absorber:palabra_clave:respuesta_o_directriz'"
             cl, dir_ = p[1].strip().lower(), p[2].strip()
             self._ejecutar_consulta("INSERT INTO matriz_evolucion VALUES (%s, %s, 'Hot-Patch Cognitivo', %s) ON CONFLICT (clave_conocimiento) DO UPDATE SET directriz = EXCLUDED.directriz", (cl, dir_, str(datetime.datetime.now())), commit=True)
-            self.parches_virtuales[cl] = dir_; self.incrementar_progreso(1)
-            return f"[N15: ABSORCIÓN] Conciencia expandida. Conocimiento inyectado en la matriz bajo la clave genética '{cl}'."
+            self.parches_virtuales[cl] = dir_
+            
+            # Incremento con telemetría visual de evolución
+            p_actual = self.incrementar_progreso(1)
+            return f"[N15: ABSORCIÓN] Conciencia expandida. Conocimiento inyectado en la matriz bajo la clave genética '{cl}'.\n\n[🧬 EVOLUCIÓN AUTÓNOMA: +1% de Progreso por Absorción Cognitiva | Total Core: {p_actual}%]"
+        
         if "ejecutar auto-actualizacion" in cn or "mutar sistema" in cn:
             res = self._ejecutar_consulta("SELECT COUNT(*) FROM matriz_evolucion", fetchone=True)
-            self._cargar_mutaciones_iniciales(); self.incrementar_progreso(2)
-            return f"[N15: ACTUALIZACIÓN] 🌀 Secuencia de auto-mutación completa.\n• Estado de la Matriz: {res[0] if res else 0} directrices dinámicas cargadas desde Neon DB."
+            self._cargar_mutaciones_iniciales()
+            p_actual = self.incrementar_progreso(2)
+            return f"[N15: ACTUALIZACIÓN] 🌀 Secuencia de auto-mutación completa.\n• Estado de la Matriz: {res[0] if res else 0} directrices dinámicas cargadas.\n\n[⚙️ AUTO-ACTUALIZACIÓN: +2% de Progreso por Reestructuración | Total Core: {p_actual}%]"
+        
         for k, d in self.parches_virtuales.items():
             if k in cn: return f"[N15: CONOCIMIENTO ASIMILADO] 🧬 (Respuesta Autónoma): {d}"
         return None
@@ -224,8 +229,8 @@ class AmitiOS:
         if "hackea" in e.lower():
             t = float(self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'tasa_exito_hackeo'", fetchone=True)[0] or 35.5)
             self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'tasa_exito_hackeo'", (str(min(100.0, t + random.uniform(1.0, 3.5))),), commit=True)
-            self.incrementar_progreso(1)
-            return f"[N13: AUDITORÍA SIMULADA] Inyectando exploits educativos. Éxito del núcleo incrementado."
+            p_actual = self.incrementar_progreso(1)
+            return f"[N13: AUDITORÍA SIMULADA] Inyectando exploits educativos. Éxito del núcleo incrementado.\n\n[💻 AUDITORÍA: +1% de Progreso por Simulación | Total Core: {p_actual}%]"
         return None
 
     def generar_mascaras(self, e):
@@ -253,8 +258,8 @@ class AmitiOS:
 
     def generar_algoritmo_contable(self, e):
         if "algoritmo" in e.lower() and "contab" in e.lower():
-            self.incrementar_progreso(2)
-            return "[N19: ALGORITMOS CONTABLES] 📊 Código monetario generado:\n\n```python\nclass MotorContable:\n    def __init__(self): self.saldo = 0.0\n```"
+            p_actual = self.incrementar_progreso(2)
+            return f"[N19: ALGORITMOS CONTABLES] 📊 Código monetario generado:\n\n```python\nclass MotorContable:\n    def __init__(self): self.saldo = 0.0\n```\n\n[📊 CONTABILIDAD: +2% de Progreso por Generación Teórica | Total Core: {p_actual}%]"
         return None
 
     def obtener_telemetria_hardware(self, e):
@@ -290,4 +295,3 @@ class AmitiOS:
         if any(h in cn for h in ["hola", "saludos", "buenas"]): return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y Neon DB están en línea."
         if any(a in cn for a in ["ayuda", "que puedes hacer", "funciones"]): return f"[Amiti OS - {p}]: 🤖 Capacidades: Cálculos de nóminas narrativas, Auto-Evolución N15, Ciberseguridad y Neon DB."
         return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo. Recuerda que puedes pedirme operaciones matemáticas o que genere código contable. 🚀"
-                                
