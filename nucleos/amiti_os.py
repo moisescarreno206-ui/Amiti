@@ -298,4 +298,26 @@ class AmitiOS:
 
     def incrementar_progreso(self, cant):
         n = min(100, self.obtener_progreso() + cant)
-        self._ejecutar_consulta("UPDATE me)
+        self._ejecutar_consulta("UPDATE memoria_general SET valor = %s WHERE clave = 'progreso'", (str(n),), commit=True)
+        return n
+
+    def procesar(self, cmd):
+        if self.bloqueado: return "BLOQUEADO. Ingrese la llave de seguridad."
+        cn = cmd.lower().strip()
+        modulos = [
+            self.defender_y_copiar, self.proteger_creador, self.resolver_matematicas_y_fisica,
+            self.analizar_problemas_nomina_y_pagos, self.generar_algoritmo_contable, self.ejecutar_auto_mantenimiento_db,
+            self.obtener_telemetria_hardware, self.registrar_aprendizaje, self.encriptar_y_comprimir,
+            self.acceder_biblioteca_oculta, self.auto_evolucion_sistema, self.escanear_medicina,
+            self.asistencia_investigacion, self.autogenerar_mejoras, self.ejecutar_hackeo_remoto,
+            self.rastrear_objetivo, self.generar_mascaras, self.controlar_dispositivo_simulado, 
+            self.modulo_linguistico_ingles, self.ejecutar_ataque_digital
+        ]
+        for m in modulos:
+            res = m(cmd)
+            if res: return res
+        p = self.obtener_personalidad(cmd)
+        if "se " in cn or "modo " in cn: return p
+        if any(h in cn for h in ["hola", "saludos", "buenas"]): return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y Neon DB están en línea."
+        if any(a in cn for a in ["ayuda", "que puedes hacer", "funciones"]): return f"[Amiti OS - {p}]: 🤖 Capacidades: Búsqueda Web Real N04, Cálculos de nóminas, Auto-Evolución N15 y Neon DB."
+        return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo. Prueba preguntarme 'Investiga [tema]' para buscar información real en internet. 🚀"
