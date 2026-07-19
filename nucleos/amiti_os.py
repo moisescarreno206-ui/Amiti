@@ -79,7 +79,14 @@ class AmitiOS:
         return None
 
     def ejecutar_ataque_digital(self, e):
-        if "ataca" in e.lower() or "derribar" in e.lower(): return f"[N06: SISTEMA OFENSIVO (SIM)] Analizando puertos y vulnerabilidades lógicas en '{e.lower().strip()}'."
+        t = e.lower()
+        if any(k in t for k in ["ataca", "contraataque", "elimina amenaza", "destruir"]):
+            obj = e.replace("ataca","").replace("contraataque","").replace("destruir","").strip()
+            obj = obj if obj else "Entidad Invasora Desconocida"
+            tacticas = ["Inyección de Ruido Blanco y Desbordamiento Lógico", "Espejo de Bucle Infinito (Honeypot Cuántico)", "Sobrecarga Síncrona de Cifrado (Trampa de Datos)", "Purga de Paquetes y Falsificación de Host"]
+            ataque_elegido = random.choice(tacticas)
+            self.incrementar_progreso(2)
+            return f"[N06: CONTRAATAQUE OFENSIVO ACTIVO] ⚔️\n🔥 OBJETIVO FIJADO: '{obj}'\n└─ Desplegando: {ataque_elegido}\n└─ Estado: Desmantelando vectores del virus, aislando su IP en la lista negra de Neon DB y ejecutando purga de código malicioso."
         return None
 
     def defender_y_copiar(self, c):
@@ -176,7 +183,7 @@ class AmitiOS:
             self._cargar_mutaciones_iniciales(); self.incrementar_progreso(2)
             return f"[N15: ACTUALIZACIÓN] 🌀 Secuencia de auto-mutación completa.\n• Estado de la Matriz: {res[0] if res else 0} directrices dinámicas cargadas desde Neon DB."
         for k, d in self.parches_virtuales.items():
-            if k in cn: return f"[N15: CONOCIMIENTO ASIMILADO] 🧬 (Respuesta Autónoma): {d}"
+            if k in cn: return f"[N15: CONOCIMIENTO ASIMILADO] 🧬 (Respuesta Autonomous): {d}"
         return None
 
     def rastrear_objetivo(self, e):
@@ -242,7 +249,8 @@ class AmitiOS:
             self.obtener_telemetria_hardware, self.registrar_aprendizaje, self.encriptar_y_comprimir,
             self.acceder_biblioteca_oculta, self.auto_evolucion_sistema, self.escanear_medicina,
             self.asistencia_investigacion, self.autogenerar_mejoras, self.ejecutar_hackeo_remoto,
-            self.rastrear_objetivo, self.generar_mascaras, self.controlar_dispositivo_simulado, self.modulo_linguistico_ingles
+            self.rastrear_objetivo, self.generar_mascaras, self.controlar_dispositivo_simulado, 
+            self.modulo_linguistico_ingles, self.ejecutar_ataque_digital
         ]
         for m in modulos:
             res = m(cmd)
@@ -252,4 +260,4 @@ class AmitiOS:
         if any(h in cn for h in ["hola", "saludos", "buenas"]): return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y Neon DB están en línea."
         if any(a in cn for a in ["ayuda", "que puedes hacer", "funciones"]): return f"[Amiti OS - {p}]: 🤖 Capacidades: Cálculos de nóminas narrativas, Auto-Evolución N15, Ciberseguridad y Neon DB."
         return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo. Recuerda que puedes pedirme operaciones matemáticas o que genere código contable. 🚀"
-                   
+        
