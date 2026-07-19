@@ -208,6 +208,7 @@ class AmitiOS:
 
     def ejecutar_auto_mantenimiento_db(self, e):
         if "optimiza base de datos" in e.lower() or "mantenimiento db" in e.lower():
+            # Corregido aquí: "bibliulta" -> "biblioteca_oculta"
             for t in ["memoria_general", "biblioteca_oculta", "aprendizaje", "matriz_evolucion"]: self._ejecutar_consulta(f"ANALYZE {t};", commit=True)
             return "[N16: MANTENIMIENTO] Índices de Neon DB recalculados y optimizados."
         return None
