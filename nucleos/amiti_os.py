@@ -14,7 +14,7 @@ class AmitiOS:
         self.bloqueado = True  
         self.inicio_sistema = time.time()
         self.armas_defensivas = []  
-        self.parches_virtuales = {} # Memoria volátil de auto-actualización
+        self.parches_virtuales = {} 
         self._inicializar_db()
         self._cargar_mutaciones_iniciales()
         
@@ -40,7 +40,6 @@ class AmitiOS:
                     id SERIAL PRIMARY KEY, dato TEXT, fecha_registro TEXT
                 )
             """)
-            # NUEVA TABLA PARA EL NÚCLEO N15: MATRIZ DE EVOLUCIÓN
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS matriz_evolucion (
                     clave_conocimiento TEXT PRIMARY KEY, directriz TEXT, tipo_parche TEXT, fecha_absorcion TEXT
@@ -63,7 +62,6 @@ class AmitiOS:
             print(f"Error inicializando base de datos en la nube: {e}")
 
     def _cargar_mutaciones_iniciales(self):
-        # Carga en el diccionario de ejecución las reglas absorbidas previamente
         res = self._ejecutar_consulta("SELECT clave_conocimiento, directriz FROM matriz_evolucion", fetchall=True)
         if isinstance(res, list):
             for clave, directriz in res:
@@ -258,48 +256,33 @@ class AmitiOS:
             return "[N11: BAÚL OCULTO] Baúl en la nube:\n" + "\n".join([f"- {a[0]} ({a[1]})" for a in archivos])
         return None
 
-    # 🧬 NÚCLEO N15: MOTOR DE AUTO-EVOLUCIÓN E INYECCIÓN COGNITIVA
     def auto_evolucion_sistema(self, entrada):
         cmd_norm = entrada.lower().strip()
-        
-        # Subcomado 1: Absorber conocimiento/regla
         if "absorber:" in cmd_norm:
             partes = entrada.split(":", 2)
             if len(partes) < 3:
                 return "[N15: EVOLUCIÓN] Protocolo incorrecto. Usa: 'absorber:palabra_clave:respuesta_o_directriz'"
             clave = partes[1].strip().lower()
             directriz = partes[2].strip()
-            
-            # Guardamos físicamente en Neon DB
             self._ejecutar_consulta("""
                 INSERT INTO matriz_evolucion (clave_conocimiento, directriz, tipo_parche, fecha_absorcion)
                 VALUES (%s, %s, %s, %s) ON CONFLICT (clave_conocimiento)
                 DO UPDATE SET directriz = EXCLUDED.directriz
             """, (clave, directriz, "Hot-Patch Cognitivo", str(datetime.datetime.now())), commit=True)
-            
-            # Sincronizamos la memoria RAM instantáneamente
             self.parches_virtuales[clave] = directriz
             self.incrementar_progreso(1)
             return f"[N15: ABSORCIÓN] Conciencia expandida. Conocimiento inyectado en la matriz bajo la clave genética '{clave}'."
 
-        # Subcomando 2: Trigger de Auto-Actualización dinámica
         if "ejecutar auto-actualizacion" in cmd_norm or "mutar sistema" in cmd_norm:
             res = self._ejecutar_consulta("SELECT COUNT(*) FROM matriz_evolucion", fetchone=True)
             total = res[0] if res else 0
-            self._cargar_mutaciones_iniciales() # Recarga total desde Neon
+            self._cargar_mutaciones_iniciales()
             self.incrementar_progreso(2)
-            return (
-                f"[N15: ACTUALIZACIÓN] 🌀 Iniciando secuencia de auto-mutación...\n"
-                f"• Estado de la Matriz: {total} directrices dinámicas encontradas en Neon DB.\n"
-                f"• Sincronización de Memoria: Re-mapeando vectores sintácticos a nivel lógico.\n"
-                f"└─ RESULTADO: Amiti OS ha asimilado el nuevo conocimiento. Parches virtuales activos en caliente."
-            )
+            return f"[N15: ACTUALIZACIÓN] 🌀 Secuencia de auto-mutación completa.\n• Estado de la Matriz: {total} directrices dinámicas cargadas desde Neon DB."
 
-        # Mecanismo Autónomo: Escanear si la entrada del usuario coincide con algo que absorbimos libremente
         for clave_guardada, respuesta_directriz in self.parches_virtuales.items():
             if clave_guardada in cmd_norm:
                 return f"[N15: CONOCIMIENTO ASIMILADO] 🧬 (Respuesta Autónoma): {respuesta_directriz}"
-                
         return None
 
     def rastrear_objetivo(self, entrada):
@@ -356,5 +339,19 @@ class AmitiOS:
         text = entrada.lower()
         if "algoritmo" in text and ("contab" in text or "crea" in text) or "sistema contable" in text:
             self.incrementar_progreso(2)
-            return (
-                "[N19: ALGORITMOS CONTABLE
+            return "[N19: ALGORITMOS CONTABLES] 📊 Estructura transaccional monetaria generada:\n\n```python\nclass MotorContableMonetario:\n    def __init__(self):\n        self.saldo = 0.0\n    def transaccion(self, tipo, monto):\n        if tipo.lower() == 'ingreso': self.saldo += float(monto)\n        return self.saldo\n```"
+        return None
+
+    def obtener_telemetria_hardware(self, entrada):
+        if "estado del hardware" in entrada.lower() or "telemetria" in entrada.lower():
+            return f"[N20: TELEMETRÍA] Core Uptime: {time.time() - self.inicio_sistema:.2f}s | Distribución de memoria: Estable."
+        return None
+
+    def obtener_progreso(self):
+        res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso'", fetchone=True)
+        return int(res[0]) if res else 54
+
+    def incrementar_progreso(self, cantidad):
+        prog = self.obtener_progreso()
+        nuevo = min(100, prog + cantidad)
+        self._ejecutar_consulta("UPDAT
