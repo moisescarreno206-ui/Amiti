@@ -7,6 +7,7 @@ class AmitiOS:
         self.bloqueado = True  
         self.inicio_sistema = time.time()
         self.armas_defensivas, self.parches_virtuales = [], {}
+        self.objetivo_fijado = "Entidad Invasora Desconocida"  # Sistema Lock-On en memoria inicializado
         self._inicializar_db()
         self._cargar_mutaciones_iniciales()
         
@@ -80,15 +81,31 @@ class AmitiOS:
 
     def ejecutar_ataque_digital(self, e):
         t = e.lower()
+        
+        # SUB-NÚCLEO: Lock-On (Fijar Objetivo persistentemente)
+        if "fija" in t or "fijar" in t and "objetivo" in t:
+            obj = re.sub(r'(fija objetivo|fijar objetivo|fija el objetivo|fijar el objetivo|:)', '', e, flags=re.IGNORECASE).strip()
+            # Limpia conectores en español al principio de la cadena
+            obj = re.sub(r'^(a\s+la\s+|a\s+los\s+|a\s+|al\s+|el\s+|la\s+|los\s+|las\s+)', '', obj, flags=re.IGNORECASE).strip()
+            if obj:
+                self.objetivo_fijado = obj
+                return f"[N06: LOCK-ON SYSTEM] 🎯 Sistema de rastreo fijado en: '{self.objetivo_fijado}'."
+            return "[N06: LOCK-ON SYSTEM] Especifica una IP, host o entidad para fijar en la mira."
+
+        # SUB-NÚCLEO: Ejecución de Ofensiva
         if any(k in t for k in ["ataca", "contraataque", "elimina amenaza", "destruir"]):
-            # Solución Regex: Limpia el comando ignorando mayúsculas y minúsculas de forma exacta
+            # Limpia el comando básico
             obj = re.sub(r'(ataca|contraataque|elimina amenaza|destruir)', '', e, flags=re.IGNORECASE).strip()
-            obj = obj if obj else "Entidad Invasora Desconocida"
+            # Limpia conectores gramaticales sobrantes
+            obj = re.sub(r'^(a\s+la\s+|a\s+los\s+|a\s+|al\s+|el\s+|la\s+|los\s+|las\s+)', '', obj, flags=re.IGNORECASE).strip()
+            
+            # Prioridad: Si especificas un objetivo en el comando lo usa, de lo contrario usa el guardado en Lock-On
+            target = obj if obj else self.objetivo_fijado
             
             tacticas = ["Inyección de Ruido Blanco y Desbordamiento Lógico", "Espejo de Bucle Infinito (Honeypot Cuántico)", "Sobrecarga Síncrona de Cifrado (Trampa de Datos)", "Purga de Paquetes y Falsificación de Host"]
             ataque_elegido = random.choice(tacticas)
             self.incrementar_progreso(2)
-            return f"[N06: CONTRAATAQUE OFENSIVO ACTIVO] ⚔️\n🔥 OBJETIVO FIJADO: '{obj}'\n└─ Desplegando: {ataque_elegido}\n└─ Estado: Desmantelando vectores del virus, aislando su IP en la lista negra de Neon DB y ejecutando purga de código malicioso."
+            return f"[N06: CONTRAATAQUE OFENSIVO ACTIVO] ⚔️\n🔥 OBJETIVO FIJADO: '{target}'\n└─ Desplegando: {ataque_elegido}\n└─ Estado: Desmantelando vectores del virus, aislando su IP en la lista negra de Neon DB y ejecutando purga de código malicioso."
         return None
 
     def defender_y_copiar(self, c):
@@ -210,7 +227,6 @@ class AmitiOS:
 
     def ejecutar_auto_mantenimiento_db(self, e):
         if "optimiza base de datos" in e.lower() or "mantenimiento db" in e.lower():
-            # Solución de Mantenimiento: "bibliulta" corregido a "biblioteca_oculta"
             for t in ["memoria_general", "biblioteca_oculta", "aprendizaje", "matriz_evolucion"]: self._ejecutar_consulta(f"ANALYZE {t};", commit=True)
             return "[N16: MANTENIMIENTO] Índices de Neon DB recalculados y optimizados."
         return None
@@ -263,4 +279,3 @@ class AmitiOS:
         if any(h in cn for h in ["hola", "saludos", "buenas"]): return f"[Amiti OS - {p}]: ¡Hola de nuevo, Creador! 👋 Todos mis sub-núcleos lógicos y Neon DB están en línea."
         if any(a in cn for a in ["ayuda", "que puedes hacer", "funciones"]): return f"[Amiti OS - {p}]: 🤖 Capacidades: Cálculos de nóminas narrativas, Auto-Evolución N15, Ciberseguridad y Neon DB."
         return f"[Amiti OS - Empático]: Entendido perfectamente, Creador. He leído tu mensaje, pero no logré identificar un comando directo. Recuerda que puedes pedirme operaciones matemáticas o que genere código contable. 🚀"
-            
