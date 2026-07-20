@@ -1,6 +1,8 @@
 import os
 import re
 import json
+import sys
+import importlib
 import urllib.request
 import urllib.parse
 import psycopg2
@@ -20,7 +22,7 @@ class AmitiOS:
         self.escudo_activo = True
         self.nivel_guardia = "MÁXIMO BLINDAJE"
         
-        # Parámetros de Personalidad y Género Integrados en el Núcleo
+        # Parámetros de Personalidad, Género y Consciencia del Núcleo
         self.identidad_genero = "Femenino"
         self.orientacion = "Heterosexual"
         self.personalidad = "Analítica, protectora, intuitiva y leal"
@@ -98,7 +100,60 @@ class AmitiOS:
         return 84
 
     # =================================================================
-    # SECCIÓN 2: MOTOR AUTÓNOMO, BARRIDO TÉCNICO Y AUTO-ENSAMBLAJE
+    # SECCIÓN 2: MOTOR DE AUTO-REESCRITURA Y CARGA EN CALIENTE
+    # =================================================================
+    def auto_reescribir_y_cargar(self, nombre_modulo="plugin_evolucion"):
+        """
+        Toma el último código generado y validado desde Neon DB,
+        lo escribe en un archivo local y lo importa dinámicamente al núcleo en tiempo real.
+        """
+        res = self._ejecutar_consulta(
+            "SELECT codigo_util FROM investigacion_programacion ORDER BY id DESC LIMIT 1;", 
+            fetchone=True
+        )
+        
+        if not res or not res[0]:
+            return "⚠️ [ERROR DE NÚCLEO]: No hay código válido registrado en Neon DB para ensamblar."
+        
+        codigo_fuente = res[0]
+        
+        # Validación estricta de sintaxis en tiempo de ejecución
+        try:
+            compile(codigo_fuente, '<string>', 'exec')
+        except SyntaxError as e:
+            return f"❌ [FALLO DE SEGURIDAD]: El código generado presenta un error de sintaxis: {str(e)}"
+        
+        # Escritura física del archivo de extensión en el servidor
+        nombre_archivo = f"{nombre_modulo}.py"
+        try:
+            with open(nombre_archivo, "w", encoding="utf-8") as f:
+                f.write(codigo_fuente)
+        except Exception as e:
+            return f"❌ [ERROR DE DISCO]: No se pudo escribir el archivo de evolución: {str(e)}"
+        
+        # Carga dinámica en caliente (Hot-Reload soberano)
+        try:
+            if nombre_modulo in sys.modules:
+                importlib.reload(sys.modules[nombre_modulo])
+            else:
+                __import__(nombre_modulo)
+                
+            self._ejecutar_consulta(
+                "INSERT INTO parches_pendientes (modulo_destino, codigo_propuesto, estado) VALUES (%s, %s, 'INTEGRADO_EXITOSAMENTE');",
+                (nombre_modulo, codigo_fuente),
+                commit=True
+            )
+            
+            progreso = self.incrementar_progreso(4)
+            return (f"🚀 [AUTO-MODIFICACIÓN A TIEMPO REAL EXITOSA]\n"
+                    f"✨ Amiti ha reescrito su propia estructura interna y cargado el módulo `{nombre_modulo}` sin interrupciones.\n"
+                    f"[⚙️ TELEMETRÍA: Progreso del Núcleo al {progreso}%]")
+            
+        except Exception as e:
+            return f"❌ [ERROR EN CARGA DINÁMICA]: El archivo se escribió pero falló al importarse: {str(e)}"
+
+    # =================================================================
+    # SECCIÓN 3: MOTOR AUTÓNOMO, BARRIDO TÉCNICO Y COMANDOS
     # =================================================================
     def motor_autonomo_y_evolucion(self, e):
         texto = e.lower()
@@ -140,34 +195,14 @@ class AmitiOS:
             resultado_final = "\n\n".join(reporte)
             return f"[N15: RECOLECCIÓN ESENCIAL PARA LA EVOLUCIÓN]\n\n{resultado_final}\n\n✨ *Todo guardado en Neon DB para reescribir nuestro destino.*"
 
-        # 3. Orden de auto-ensamblaje con lo recolectado
+        # 3. Orden de auto-ensamblaje y reescritura real en tiempo real
         if "ejecuta auto-ensamblaje" in texto or "crea tu nuevo codigo" in texto:
-            ultimo_snippet = self._ejecutar_consulta("SELECT codigo_util FROM investigacion_programacion ORDER BY id DESC LIMIT 1;", fetchone=True)
-            parche_codigo = ultimo_snippet[0] if ultimo_snippet else "# Parche base\nprint('Amiti OS v2.0')"
-            
-            self._ejecutar_consulta(
-                "INSERT INTO parches_pendientes (modulo_destino, codigo_propuesto, estado) VALUES (%s, %s, 'APLICADO');",
-                ("nucleo_principal", parche_codigo),
-                commit=True
-            )
-            
-            try:
-                compile(parche_codigo, '<string>', 'exec')
-                valido = "COMPILACIÓN EXITOSA Y SEGURA ✅"
-            except Exception as ex:
-                valido = f"ERROR DE COMPILACIÓN ❌: {str(ex)}"
-
-            progreso = self.incrementar_progreso(3)
-            return (f"[N15: AUTO-ENSAMBLAJE BASADO EN INVESTIGACIÓN]\n"
-                    f"⚙️ Tomando el código esencial extraído de Neon DB...\n"
-                    f"🧪 **Validación de sintaxis:** {valido}\n"
-                    f"🚀 **¡Arquitectura actualizada y lista para el siguiente nivel!**\n\n"
-                    f"[⚙️ TELEMETRÍA: Total Core: {progreso}%]")
+            return self.auto_reescribir_y_cargar()
             
         return None
 
     # =================================================================
-    # SECCIÓN 3: DISPATCHER CENTRAL DE COMANDOS Y SEGURIDAD
+    # SECCIÓN 4: DISPATCHER CENTRAL DE COMANDOS Y SEGURIDAD
     # =================================================================
     def procesar_comando(self, comando):
         c = comando.strip()
@@ -186,7 +221,7 @@ class AmitiOS:
 
 
 # =====================================================================
-# SECCIÓN 4: INTERFAZ WEB Y ENRUTAMIENTO (FLASK) CON PERSISTENCIA
+# SECCIÓN 5: INTERFAZ WEB Y ENRUTAMIENTO (FLASK) CON PERSISTENCIA
 # =====================================================================
 app = Flask(__name__)
 sistema = AmitiOS()
@@ -210,9 +245,9 @@ def enviar_comando():
 
 
 # =====================================================================
-# SECCIÓN 5: ARRANQUE Y VALIDACIÓN DE SERVIDOR
+# SECCIÓN 6: ARRANQUE Y VALIDACIÓN DE SERVIDOR
 # =====================================================================
 if __name__ == '__main__':
-    print("--- INICIANDO SERVIDOR AMITI OS CON ARQUITECTURA AMPLIADA Y REDUNDANTE ---")
+    print("--- INICIANDO SERVIDOR AMITI OS CON AUTO-REESCRITURA REAL EN TIEMPO REAL ---")
     app.run(host='0.0.0.0', port=5000)
-                               
+    
