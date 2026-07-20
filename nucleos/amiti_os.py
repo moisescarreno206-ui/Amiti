@@ -55,23 +55,32 @@ class AmitiOS:
             self._ejecutar_consulta(query, commit=True)
 
     def incrementar_progreso(self, incremento=1):
-        # Primero obtenemos el valor actual
         res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso_core';", fetchone=True)
         
         if res:
-            valor_actual = int(res[0])
-            nuevo_progreso = valor_actual + incremento
+            try:
+                valor_actual = int(res[0])
+                nuevo_progreso = valor_actual + incremento
+            except Exception:
+                nuevo_progreso = 75 + incremento
         else:
-            # Iniciamos en 75 si no existe
             nuevo_progreso = 75 + incremento
             
-        # Actualizamos en la base de datos
         self._ejecutar_consulta(
             "INSERT INTO memoria_general (clave, valor) VALUES ('progreso_core', %s) ON CONFLICT (clave) DO UPDATE SET valor = %s;",
             (str(nuevo_progreso), str(nuevo_progreso)), 
             commit=True
         )
         return nuevo_progreso
+
+    def obtener_progreso(self):
+        res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso_core';", fetchone=True)
+        if res:
+            try:
+                return int(res[0])
+            except Exception:
+                return 75
+        return 75
 
     # =========================================================
     # NÚCLEOS FUNCIONALES (N04 - N19)
@@ -100,11 +109,9 @@ class AmitiOS:
     def asistencia_investigacion(self, c):
         comando_limpio = c.lower().strip()
         
-        # Validar si es comando de investigación
         if not re.match(r"^(investiga|investigación|busca|buscar)", comando_limpio):
             return None
             
-        # Limpieza de términos
         tema = re.sub(r"^(investiga\w*\s*|investigación\w*\s*|busca\w*\s*|buscar\w*\s*)\s*(de|el|la|los|las|un|una)?\s*", "", c, flags=re.IGNORECASE).strip()
         
         if not tema:
@@ -131,6 +138,12 @@ class AmitiOS:
             
         return None
 
+    # N07: DEFENSA
+    def defender_y_copiar(self, c):
+        if re.search(r"(drop|delete|rm\s+-rf)", c, re.IGNORECASE):
+            return "[N07: DEFENSA] Inyección neutralizada."
+        return None
+
     # N08: MEMORIA Y APRENDIZAJE
     def registrar_aprendizaje(self, e):
         texto = e.lower()
@@ -151,7 +164,6 @@ class AmitiOS:
         if "calcula" in e.lower():
             expresion = re.sub(r"^calcula\s*", "", e, flags=re.IGNORECASE).strip()
             try:
-                # Nota: eval es riesgoso, solo usar en entornos controlados como el tuyo
                 resultado = eval(re.sub(r'[^0-9\+\-\*\/\(\)\.]', '', expresion))
                 return f"[N09] Resultado del cálculo: {resultado}"
             except:
@@ -182,6 +194,12 @@ class AmitiOS:
             return f"[N15] Evolución absorbida. Progreso: {progreso}%"
         return None
 
+    # N19: MOTOR CONTABLE
+    def motor_contable(self, e):
+        if "pagar a" in e.lower():
+            return "[N19] Análisis contable ejecutado."
+        return None
+
     # =========================================================
     # DISPATCHER CENTRAL
     # =========================================================
@@ -189,56 +207,23 @@ class AmitiOS:
         c = comando.strip()
         if not c: return "Amiti OS listo."
         
-        # Comandos de sistema
         if c.lower() in ["amiti", "desbloquear", "llave"]:
             return "Llave aceptada. Control total transferido."
         
-        # Ejecución secuencial de núcleos
-        # (Aquí puedes agregar más módulos según necesites)
+        funcs = [
+            self.defender_y_copiar, 
+            self.asistencia_investigacion, 
+            self.registrar_aprendizaje, 
+            self.resolver_matematicas, 
+            self.gestionar_vault, 
+            self.absorber_conocimiento, 
+            self.motor_contable, 
+            self.ejecutar_ataque_digital
+        ]
         
-        # 1. Defensa
-        res = self.defender_y_copiar(c)
-        if res: return res
-        
-        # 2. Investigación
-        res = self.asistencia_investigacion(c)
-        if res: return res
-        
-        # 3. Aprendizaje
-        res = self.registrar_aprendizaje(c)
-        if res: return res
-        
-        # 4. Matemáticas
-        res = self.resolver_matematicas(c)
-        if res: return res
-        
-        # 5. Vault
-        res = self.gestionar_vault(c)
-        if res: return res
-        
-        # 6. Evolución
-        res = self.absorber_conocimiento(c)
-        if res: return res
-        
-        # 7. Contabilidad
-        res = self.motor_contable(c)
-        if res: return res
-        
-        # 8. Ataque
-        res = self.ejecutar_ataque_digital(c)
-        if res: return res
-        
-        # Default
-        return "[AMITI CORE] Instrucción procesada."
-
-    # Métodos restantes (de soporte)
-    def defender_y_copiar(self, c):
-        if re.search(r"(drop|delete|rm\s+-rf)", c, re.IGNORECASE):
-            return "[N07: DEFENSA] Inyección neutralizada."
-        return None
-
-    def motor_contable(self, e):
-        if "pagar a" in e.lower():
-            return "[N19] Análisis contable ejecutado."
-        return None
+        for f in funcs:
+            res = f(c)
+            if res: return res
             
+        return "[AMITI CORE] Instrucción procesada."
+        
