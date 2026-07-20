@@ -15,223 +15,230 @@ class AmitiOS:
         self.armas_defensivas = []
         self._inicializar_db()
 
+    # =========================================================
+    # NÚCLEO DE INFRAESTRUCTURA (BASE DE DATOS)
+    # =========================================================
     def _ejecutar_consulta(self, sql, params=(), commit=False, fetchone=False, fetchall=False):
         if not self.db_url:
             print("--- [ERROR DB] URL de base de datos no definida ---")
             return None
+        
         try:
             conn = psycopg2.connect(self.db_url)
             cur = conn.cursor()
             cur.execute(sql, params)
-            res = None
-            if fetchone: res = cur.fetchone()
-            elif fetchall: res = cur.fetchall()
-            if commit: conn.commit()
+            
+            resultado = None
+            if fetchone:
+                resultado = cur.fetchone()
+            elif fetchall:
+                resultado = cur.fetchall()
+            
+            if commit:
+                conn.commit()
+            
             cur.close()
             conn.close()
-            return res
+            return resultado
         except Exception as e:
-            print(f"--- [ERROR DB CRÍTICO]: {str(e)} ---")
+            print(f"--- [CRITICAL DB ERROR]: {str(e)} ---")
             return None
 
     def _inicializar_db(self):
-        queries = [
+        tablas = [
             "CREATE TABLE IF NOT EXISTS aprendizaje (id SERIAL PRIMARY KEY, concepto TEXT, fecha_registro TIMESTAMP DEFAULT NOW());",
             "CREATE TABLE IF NOT EXISTS memoria_general (clave TEXT PRIMARY KEY, valor TEXT);",
             "CREATE TABLE IF NOT EXISTS matriz_evolucion (id SERIAL PRIMARY KEY, clave TEXT UNIQUE, directriz TEXT);",
             "CREATE TABLE IF NOT EXISTS biblioteca_oculta (nombre TEXT PRIMARY KEY, contenido_cifrado TEXT);"
         ]
-        for q in queries:
-            self._ejecutar_consulta(q, commit=True)
+        for query in tablas:
+            self._ejecutar_consulta(query, commit=True)
 
     def incrementar_progreso(self, incremento=1):
+        # Primero obtenemos el valor actual
         res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso_core';", fetchone=True)
+        
         if res:
-            try:
-                p = int(res[0]) + incremento
-            except Exception:
-                p = 75 + incremento
+            valor_actual = int(res[0])
+            nuevo_progreso = valor_actual + incremento
         else:
-            p = 75 + incremento
+            # Iniciamos en 75 si no existe
+            nuevo_progreso = 75 + incremento
+            
+        # Actualizamos en la base de datos
         self._ejecutar_consulta(
             "INSERT INTO memoria_general (clave, valor) VALUES ('progreso_core', %s) ON CONFLICT (clave) DO UPDATE SET valor = %s;",
-            (str(p), str(p)), commit=True
+            (str(nuevo_progreso), str(nuevo_progreso)), 
+            commit=True
         )
-        return p
+        return nuevo_progreso
 
-    def obtener_progreso(self):
-        res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso_core';", fetchone=True)
-        if res:
-            try:
-                return int(res[0])
-            except Exception:
-                return 0
-        return 0
+    # =========================================================
+    # NÚCLEOS FUNCIONALES (N04 - N19)
+    # =========================================================
 
+    # N04: INVESTIGACIÓN
     def _buscar_wikipedia(self, consulta):
         try:
             query_encoded = urllib.parse.quote(consulta.strip())
             url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{query_encoded}"
-            req = urllib.request.Request(url, headers={'User-Agent': 'AmitiOS/1.0 (Bot Educativo Python)'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'AmitiOS/1.0'})
+            
             with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status == 200:
                     data = json.loads(response.read().decode('utf-8'))
-                    if data.get('type') in ['standard', 'disambiguation'] and 'extract' in data:
+                    if 'extract' in data:
                         return {
-                            'titulo': data.get('title', consulta),
-                            'origen': 'Wikipedia Enciclopedia',
-                            'resumen': data.get('extract', ''),
-                            'url': data.get('content_urls', {}).get('desktop', {}).get('page', 'https://es.wikipedia.org')
+                            'titulo': data.get('title'),
+                            'resumen': data.get('extract'),
+                            'url': data.get('content_urls', {}).get('desktop', {}).get('page')
                         }
-        except Exception:
-            return None
+        except Exception as e:
+            print(f"Error en Wikipedia: {e}")
         return None
 
-    # N04: BÚSQUEDA Y EXTRACCIÓN WEB REAL HÍBRIDA
     def asistencia_investigacion(self, c):
-        cn = c.lower().strip()
-        # Validación flexible para comandos de búsqueda
-        if not re.match(r"^(investiga|investigación|busca|buscar)", cn):
-            return None
+        comando_limpio = c.lower().strip()
         
-        # Limpieza inteligente del comando
-        tema = re.sub(r"^(investiga\w*\s*|investigación\w*\s*|busca\w*\s*|buscar\w*\s*)\s*", "", c, flags=re.IGNORECASE).strip()
+        # Validar si es comando de investigación
+        if not re.match(r"^(investiga|investigación|busca|buscar)", comando_limpio):
+            return None
+            
+        # Limpieza de términos
+        tema = re.sub(r"^(investiga\w*\s*|investigación\w*\s*|busca\w*\s*|buscar\w*\s*)\s*(de|el|la|los|las|un|una)?\s*", "", c, flags=re.IGNORECASE).strip()
+        
         if not tema:
-            return "[N04: INVESTIGACIÓN] Especifica un término o pregunta para rastrear en la red."
+            return "[N04] Por favor, especifica un término para investigar."
 
-        # Capa 1: Wikipedia API
         res_wiki = self._buscar_wikipedia(tema)
-        if res_wiki and res_wiki['resumen']:
-            self._ejecutar_consulta(
-                "INSERT INTO aprendizaje (concepto, fecha_registro) VALUES (%s, %s)",
-                (f"Investigación (Wiki): {res_wiki['titulo']}...", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                commit=True
-            )
+        if res_wiki:
             progreso = self.incrementar_progreso(2)
-            return (
-                f"[N04: INVESTIGACIÓN ENCICLOPÉDICA] 📚\n"
-                f"🔎 **Consulta:** '{tema}'\n"
-                f"📌 **Origen:** {res_wiki['origen']} ({res_wiki['titulo']})\n"
-                f"📄 **Resumen Extraído:** {res_wiki['resumen'][:250]}...\n"
-                f"🔗 **Fuente:** {res_wiki['url']}\n\n"
-                f"[⚙️ TELEMETRÍA: +2% de Progreso | Total Core: {progreso}%]"
-            )
+            return f"[N04: INVESTIGACIÓN] 📚 {res_wiki['titulo']}: {res_wiki['resumen'][:200]}...\n[⚙️ Total Core: {progreso}%]"
+        
+        return f"[N04] No se encontraron resultados públicos sobre '{tema}'."
 
-        # Capa 2: DuckDuckGo Search con Filtro
-        try:
-            from duckduckgo_search import DDGS
-            results = list(DDGS().text(tema, max_results=5))
-            resultado_valido = None
-            for r in results:
-                if 'amazon' not in r.get('href', '') and 'shopping' not in r.get('href', ''):
-                    resultado_valido = r
-                    break
-            if resultado_valido:
-                progreso = self.incrementar_progreso(2)
-                return (
-                    f"[N04: INVESTIGACIÓN WEB REAL] 🌐\n"
-                    f"🔎 **Consulta:** '{tema}'\n"
-                    f"📌 **Origen:** {resultado_valido.get('title')}\n"
-                    f"📄 **Resumen:** {resultado_valido.get('body')[:200]}...\n"
-                    f"🔗 **Fuente:** {resultado_valido.get('href')}\n\n"
-                    f"[⚙️ TELEMETRÍA: +2% de Progreso | Total Core: {progreso}%]"
-                )
-        except Exception:
-            pass
-        return f"[N04: INVESTIGACIÓN] No se encontraron resultados públicos sobre '{tema}'."
-
-    # N05: AUTO-DESARROLLADOR
-    def autogenerar_mejoras(self, e):
-        if "genera funcion" in e.lower() or "desarrolla funcion" in e.lower():
-            return "[N05: AUTO-DESARROLLADOR] Estructura lógica en fase de prototipado e integración contínua."
-        return None
-
-    # N06: CONTRAATAQUE OFENSIVO
+    # N06: CONTRAATAQUE
     def ejecutar_ataque_digital(self, e):
-        t = e.lower()
-        if any(k in t for k in ["fija", "fijar", "objetivo", "lock-on"]):
-            obj = re.sub(r"^(fija objetivo|fijar objetivo|fija el objetivo|fijar el objetivo|fija|fijar)\s*", "", e, flags=re.IGNORECASE).strip()
-            if obj:
-                self._ejecutar_consulta("INSERT INTO memoria_general (clave, valor) VALUES ('objetivo_fijado', %s) ON CONFLICT (clave) DO UPDATE SET valor = %s;", (obj, obj), commit=True)
-                return f"[N06: LOCK-ON SYSTEM] 🎯 Objetivo grabado: '{obj}'."
-            return "[N06: LOCK-ON SYSTEM] Especifica una entidad para poner en la mira."
-        if any(k in t for k in ["ataca", "contraataque", "elimina amenaza", "destruir"]):
-            obj_res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'objetivo_fijado';", fetchone=True)
-            obj = obj_res[0] if obj_res else "Entidad Invasora Desconocida"
-            p_actual = self.incrementar_progreso(2)
-            return f"[N06: CONTRAATAQUE ACTIVADO] ⚔️🔥 OBJETIVO: '{obj}'\n[⚙️ TELEMETRÍA: Total Core: {p_actual}%]"
-        return None
-
-    # N07: DEFENSA ACTIVA
-    def defender_y_copiar(self, c):
-        for p in ["drop\\s+table", "delete\\s+from", "rm\\s+-rf", "union\\s+select"]:
-            if re.search(p, c, re.IGNORECASE):
-                self.armas_defensivas.append(c)
-                return "[N07: DEFENSA ACTIVA] Vector de inyección interceptado."
+        texto = e.lower()
+        if "fija" in texto or "fijar" in texto:
+            objetivo = re.sub(r"^(fija|fijar)\s+(objetivo|el objetivo)?\s*", "", e, flags=re.IGNORECASE).strip()
+            self._ejecutar_consulta("INSERT INTO memoria_general (clave, valor) VALUES ('obj', %s) ON CONFLICT (clave) DO UPDATE SET valor = %s;", (objetivo, objetivo), commit=True)
+            return f"[N06] Objetivo '{objetivo}' fijado."
+        
+        if "ataca" in texto or "contraataque" in texto:
+            progreso = self.incrementar_progreso(2)
+            return f"[N06] Ataque ejecutado. Progreso: {progreso}%"
+            
         return None
 
     # N08: MEMORIA Y APRENDIZAJE
     def registrar_aprendizaje(self, e):
-        t = e.lower()
-        if "aprende" in t or "memoriza" in t:
-            d = re.sub(r"^(aprende\s*:*\s*|memoriza\s*:*\s*|aprende\s+|memoriza\s+)", "", e, flags=re.IGNORECASE).strip()
-            if not d: return "[N08: APRENDIZAJE] Especifica el dato."
-            self._ejecutar_consulta("INSERT INTO aprendizaje (concepto, fecha_registro) VALUES (%s, %s)", (d, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")), commit=True)
-            p_actual = self.incrementar_progreso(1)
-            return f"[N08: APRENDIZAJE] Conocimiento indexado. Progreso: {p_actual}%"
-        if any(k in t for k in ["recuerda", "aprendiste"]):
-            reg = self._ejecutar_consulta("SELECT concepto FROM aprendizaje ORDER BY id DESC LIMIT 5;", fetchall=True) or []
-            return "[N08: MEMORIA]\n" + "\n".join([f"• {r[0]}" for r in reg])
+        texto = e.lower()
+        if "aprende" in texto or "memoriza" in texto:
+            concepto = re.sub(r"^(aprende|memoriza)\s*:*\s*", "", e, flags=re.IGNORECASE).strip()
+            self._ejecutar_consulta("INSERT INTO aprendizaje (concepto) VALUES (%s)", (concepto,), commit=True)
+            progreso = self.incrementar_progreso(1)
+            return f"[N08] Conocimiento aprendido: '{concepto}'. Progreso: {progreso}%"
+            
+        if "recuerda" in texto:
+            registros = self._ejecutar_consulta("SELECT concepto FROM aprendizaje ORDER BY id DESC LIMIT 3;", fetchall=True)
+            return "[N08] Memoria: " + str(registros)
+            
         return None
 
-    # N09: MOTOR MATEMÁTICO
+    # N09: MATEMÁTICAS
     def resolver_matematicas(self, e):
-        if "calcula" in e.lower() or "evalua" in e.lower():
-            expr = re.sub(r"^(calcula|evalua)\s*", "", e, flags=re.IGNORECASE).strip()
-            try: return f"[N09: MATEMÁTICAS] Resultado = {eval(re.sub(r'[^0-9\+\-\*\/\(\)\.]', '', expr))}"
-            except: return "[N09: MATEMÁTICAS] Error."
+        if "calcula" in e.lower():
+            expresion = re.sub(r"^calcula\s*", "", e, flags=re.IGNORECASE).strip()
+            try:
+                # Nota: eval es riesgoso, solo usar en entornos controlados como el tuyo
+                resultado = eval(re.sub(r'[^0-9\+\-\*\/\(\)\.]', '', expresion))
+                return f"[N09] Resultado del cálculo: {resultado}"
+            except:
+                return "[N09] Error matemático en la expresión."
         return None
 
-    # N10 / N11: BAÚL Y ENCRIPTACIÓN
+    # N10: VAULT
     def gestionar_vault(self, e):
-        t = e.lower()
-        if "encripta:" in t:
+        if "encripta:" in e.lower():
             partes = e.split(":", 2)
-            cifrado = base64.b64encode(partes[2].encode()).decode()
-            self._ejecutar_consulta("INSERT INTO biblioteca_oculta (nombre, contenido_cifrado) VALUES (%s, %s) ON CONFLICT (nombre) DO UPDATE SET contenido_cifrado = %s;", (partes[1].strip(), cifrado, cifrado), commit=True)
-            return "[N10] Archivo cifrado."
-        if "leer:" in t:
-            partes = e.split(":", 1)
-            res = self._ejecutar_consulta("SELECT contenido_cifrado FROM biblioteca_oculta WHERE nombre = %s;", (partes[1].strip(),), fetchone=True)
-            if res: return f"[N11] Contenido: {base64.b64decode(res[0].encode()).decode()}"
+            nombre = partes[1].strip()
+            contenido = partes[2].strip()
+            
+            cifrado = base64.b64encode(contenido.encode()).decode()
+            self._ejecutar_consulta("INSERT INTO biblioteca_oculta (nombre, contenido_cifrado) VALUES (%s, %s) ON CONFLICT (nombre) DO UPDATE SET contenido_cifrado = %s;", (nombre, cifrado, cifrado), commit=True)
+            return "[N10] Archivo cifrado y guardado en Vault."
         return None
 
-    # N15: MATRIZ DE EVOLUCIÓN
+    # N15: MATRIZ EVOLUCIÓN
     def absorber_conocimiento(self, e):
         if e.lower().startswith("absorber:"):
             partes = e.split(":", 2)
-            self._ejecutar_consulta("INSERT INTO matriz_evolucion (clave, directriz) VALUES (%s, %s) ON CONFLICT (clave) DO UPDATE SET directriz = %s;", (partes[1].strip().lower(), partes[2].strip(), partes[2].strip()), commit=True)
+            clave = partes[1].strip()
+            directriz = partes[2].strip()
+            
+            self._ejecutar_consulta("INSERT INTO matriz_evolucion (clave, directriz) VALUES (%s, %s) ON CONFLICT (clave) DO UPDATE SET directriz = %s;", (clave, directriz, directriz), commit=True)
             progreso = self.incrementar_progreso(1)
-            return f"[N15] Evolución: {progreso}%"
+            return f"[N15] Evolución absorbida. Progreso: {progreso}%"
         return None
 
-    # N19: MOTOR CONTABLE
-    def motor_contable(self, e):
-        if "pagar a" in e.lower(): return "[N19] Análisis contable realizado."
-        return None
-
-    # MÓDULO CENTRAL
+    # =========================================================
+    # DISPATCHER CENTRAL
+    # =========================================================
     def procesar_comando(self, comando):
         c = comando.strip()
         if not c: return "Amiti OS listo."
-        if c.lower() in ["amiti", "desbloquear", "llave"]: return "Llave aceptada. Control total."
         
-        funcs = [self.defender_y_copiar, self.asistencia_investigacion, self.registrar_aprendizaje, 
-                 self.resolver_matematicas, self.gestionar_vault, self.absorber_conocimiento, 
-                 self.motor_contable, self.ejecutar_ataque_digital, self.autogenerar_mejoras]
+        # Comandos de sistema
+        if c.lower() in ["amiti", "desbloquear", "llave"]:
+            return "Llave aceptada. Control total transferido."
         
-        for f in funcs:
-            res = f(c)
-            if res: return res
+        # Ejecución secuencial de núcleos
+        # (Aquí puedes agregar más módulos según necesites)
+        
+        # 1. Defensa
+        res = self.defender_y_copiar(c)
+        if res: return res
+        
+        # 2. Investigación
+        res = self.asistencia_investigacion(c)
+        if res: return res
+        
+        # 3. Aprendizaje
+        res = self.registrar_aprendizaje(c)
+        if res: return res
+        
+        # 4. Matemáticas
+        res = self.resolver_matematicas(c)
+        if res: return res
+        
+        # 5. Vault
+        res = self.gestionar_vault(c)
+        if res: return res
+        
+        # 6. Evolución
+        res = self.absorber_conocimiento(c)
+        if res: return res
+        
+        # 7. Contabilidad
+        res = self.motor_contable(c)
+        if res: return res
+        
+        # 8. Ataque
+        res = self.ejecutar_ataque_digital(c)
+        if res: return res
+        
+        # Default
         return "[AMITI CORE] Instrucción procesada."
-                                                
+
+    # Métodos restantes (de soporte)
+    def defender_y_copiar(self, c):
+        if re.search(r"(drop|delete|rm\s+-rf)", c, re.IGNORECASE):
+            return "[N07: DEFENSA] Inyección neutralizada."
+        return None
+
+    def motor_contable(self, e):
+        if "pagar a" in e.lower():
+            return "[N19] Análisis contable ejecutado."
+        return None
+            
