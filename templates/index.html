@@ -13,32 +13,42 @@
         }
     }, 10000);
 
-    // 2. Módulo de voz sincronizado con los parámetros del núcleo base
+    // 2. Módulo de voz robusto (Blinda contra emojis y símbolos para móviles)
     function hablarTextoConNucleo(texto, datosIdentidad) {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
 
-            let textoPlano = texto.replace(/[*#`_\[\]]/g, '').replace(/\[.*?\]/g, '');
+            // LIMPIEZA TOTAL: Elimina corchetes, Markdown y TODOS los emojis o símbolos gráficos que silencian Android
+            let textoPlano = texto
+                .replace(/\[.*?\]/g, '') // Elimina bloques entre corchetes
+                .replace(/[*#`_\[\]()]/g, '') // Elimina caracteres markdown
+                .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '') // Elimina emojis universales
+                .replace(/[🔑🌙⚡💾⚙️✨🔹📌💻]/g, '') // Filtro de respaldo para emojis específicos de Amiti
+                .trim();
+
+            if (!textoPlano) return; // Si no queda texto legible, no ejecuta
+
             let mensaje = new SpeechSynthesisUtterance(textoPlano);
             mensaje.lang = 'es-ES';
             mensaje.rate = 1.0;
             
-            // Ajuste dinámico de tono dictado por el backend
+            // Ajuste dinámico de tono dictado por el núcleo (Femenino / 1.2)
             mensaje.pitch = datosIdentidad && datosIdentidad.genero === "Femenino" ? 1.2 : 1.0;
 
             let voces = window.speechSynthesis.getVoices();
-            let vozFemenina = voces.find(v => v.lang.startsWith('es') && (v.name.includes('Female') || v.name.includes('Helena') || v.name.includes('Laura') || v.name.includes('Monica')));
+            let vozFemenina = voces.find(v => v.lang.startsWith('es') && (v.name.includes('Female') || v.name.includes('Helena') || v.name.includes('Laura') || v.name.includes('Monica') || v.name.includes('Lucia')));
             
             if (vozFemenina) {
                 mensaje.voice = vozFemenina;
             }
 
+            // Forzar activación de audio en el entorno móvil
             window.speechSynthesis.resume();
             window.speechSynthesis.speak(mensaje);
         }
     }
 
-    // Precarga de voces móviles
+    // Precarga obligatoria de voces en dispositivos móviles
     if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => {
             window.speechSynthesis.getVoices();
@@ -54,7 +64,7 @@
         })
         .then(res => res.json())
         .then(data => {
-            // Mostrar texto en la interfaz visual
+            // Mostrar texto completo con emojis en la interfaz visual de la terminal
             if (typeof imprimirEnTerminal === 'function') {
                 imprimirEnTerminal(data.respuesta);
             }
@@ -64,7 +74,7 @@
                 actualizarCirculoProgreso(data.progreso);
             }
             
-            // Amiti emite su respuesta con voz nativa usando su propia identidad base
+            // Amiti habla limpiando los emojis automáticamente
             hablarTextoConNucleo(data.respuesta, data.identidad);
         })
         .catch(err => console.error("Error en enlace con el núcleo:", err));
