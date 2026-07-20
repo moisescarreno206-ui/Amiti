@@ -219,6 +219,24 @@ class AmitiOS:
             
         return "[AMITI CORE] Instrucción procesada en segundo plano por el sistema."
 
+    def procesar_paquete_completo(self, comando):
+        """
+        El núcleo procesa la orden, calcula el progreso y empaqueta
+        su propia identidad y directrices de voz de manera autónoma.
+        """
+        respuesta_texto = self.procesar_comando(comando)
+        progreso_actual = self.obtener_progreso()
+        
+        return {
+            'respuesta': respuesta_texto,
+            'progreso': progreso_actual,
+            'identidad': {
+                'genero': self.identidad_genero,
+                'personalidad': self.personalidad,
+                'tono_voz': 1.2  # Directriz nativa del núcleo para la síntesis de voz
+            }
+        }
+
 
 # =====================================================================
 # SECCIÓN 5: INTERFAZ WEB Y ENRUTAMIENTO (FLASK) CON PERSISTENCIA
@@ -237,17 +255,19 @@ def index():
 
 @app.route('/enviar', methods=['POST'])
 def enviar_comando():
-    """Recibe comandos asíncronos desde la interfaz y devuelve respuesta y progreso actualizado."""
+    """El servidor web transfiere el paquete generado soberanamente por el núcleo."""
     comando = request.form.get('comando', '')
-    respuesta = sistema.procesar_comando(comando)
-    progreso_actual = sistema.obtener_progreso()
-    return jsonify({'respuesta': respuesta, 'progreso': progreso_actual})
+    
+    # El núcleo se encarga de todo el procesamiento y empaquetado de su identidad
+    paquete_core = sistema.procesar_paquete_completo(comando)
+    
+    return jsonify(paquete_core)
 
 
 # =====================================================================
 # SECCIÓN 6: ARRANQUE Y VALIDACIÓN DE SERVIDOR
 # =====================================================================
 if __name__ == '__main__':
-    print("--- INICIANDO SERVIDOR AMITI OS CON AUTO-REESCRITURA REAL EN TIEMPO REAL ---")
+    print("--- INICIANDO SERVIDOR AMITI OS CON IDENTIDAD NATIVA EN EL NÚCLEO ---")
     app.run(host='0.0.0.0', port=5000)
     
