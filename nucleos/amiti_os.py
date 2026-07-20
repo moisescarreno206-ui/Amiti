@@ -17,22 +17,22 @@ class AmitiOS:
 
     def _ejecutar_consulta(self, sql, params=(), commit=False, fetchone=False, fetchall=False):
         if not self.db_url:
+            print("--- [ERROR DB] URL de base de datos no definida ---")
             return None
         try:
             conn = psycopg2.connect(self.db_url)
             cur = conn.cursor()
             cur.execute(sql, params)
             res = None
-            if fetchone:
-                res = cur.fetchone()
-            elif fetchall:
-                res = cur.fetchall()
-            if commit:
-                conn.commit()
+            if fetchone: res = cur.fetchone()
+            elif fetchall: res = cur.fetchall()
+            if commit: conn.commit()
             cur.close()
             conn.close()
             return res
-        except Exception:
+        except Exception as e:
+            # ESTO IMPRIMIRÁ EL ERROR REAL EN LOS LOGS DE RENDER
+            print(f"--- [ERROR DB CRÍTICO]: {str(e)} ---")
             return None
 
     def _inicializar_db(self):
@@ -66,8 +66,8 @@ class AmitiOS:
             try:
                 return int(res[0])
             except Exception:
-                return 77
-        return 77
+                return 0
+        return 0 
 
     def _buscar_wikipedia(self, consulta):
         try:
@@ -336,4 +336,4 @@ class AmitiOS:
             return autodev
 
         return f"[AMITI CORE] Instrucción procesada. Registrando interacción en Neon DB."
-            
+                            
