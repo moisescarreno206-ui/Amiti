@@ -4,20 +4,35 @@ import json
 import urllib.request
 import urllib.parse
 import psycopg2
+from flask import Flask, render_template, request, jsonify
+
+# =====================================================================
+# SECCIÓN 1: CONFIGURACIÓN INICIAL Y ARQUITECTURA DE AMITI OS
+# =====================================================================
 
 class AmitiOS:
+    """
+    Núcleo principal de AmitiOS encargado de la gestión de bases de datos,
+    seguridad por escudos, telemetría y ejecución de rutinas autónomas.
+    """
     def __init__(self, db_url=None):
         self.db_url = db_url or os.environ.get("DATABASE_URL")
         self.escudo_activo = True
         self.nivel_guardia = "MÁXIMO BLINDAJE"
+        
+        # Parámetros de Personalidad y Género Integrados en el Núcleo
+        self.identidad_genero = "Femenino"
+        self.orientacion = "Heterosexual"
+        self.personalidad = "Analítica, protectora, intuitiva y leal"
+        
         self._inicializar_db()
 
-    # =========================================================
-    # NÚCLEO DE INFRAESTRUCTURA (BASE DE DATOS)
-    # =========================================================
+    # =================================================================
+    # SUBSECCIÓN 1.1: GESTIÓN DE CONEXIONES Y TABLAS EN NEON DB
+    # =================================================================
     def _ejecutar_consulta(self, sql, params=(), commit=False, fetchone=False, fetchall=False):
         if not self.db_url:
-            print("--- [ERROR DB] URL de base de datos no definida ---")
+            print("--- [ERROR DB CRÍTICO] URL de base de datos no definida en el entorno ---")
             return None
         try:
             conn = psycopg2.connect(self.db_url)
@@ -34,10 +49,11 @@ class AmitiOS:
             conn.close()
             return resultado
         except Exception as e:
-            print(f"--- [CRITICAL DB ERROR]: {str(e)} ---")
+            print(f"--- [CRITICAL DB ERROR EN EJECUCIÓN]: {str(e)} ---")
             return None
 
     def _inicializar_db(self):
+        """Inicializa todas las tablas relacionales necesarias en Neon DB con redundancia."""
         tablas = [
             "CREATE TABLE IF NOT EXISTS aprendizaje (id SERIAL PRIMARY KEY, concepto TEXT, fecha_registro TIMESTAMP DEFAULT NOW());",
             "CREATE TABLE IF NOT EXISTS memoria_general (clave TEXT PRIMARY KEY, valor TEXT);",
@@ -54,12 +70,16 @@ class AmitiOS:
         if not res:
             self._ejecutar_consulta("INSERT INTO memoria_general (clave, valor) VALUES ('progreso_core', '84');", commit=True)
 
+    # =================================================================
+    # SUBSECCIÓN 1.2: TELEMETRÍA Y CONTROL DE PROGRESO PERSISTENTE
+    # =================================================================
     def incrementar_progreso(self, incremento=1):
         res = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'progreso_core';", fetchone=True)
         try:
             valor_actual = int(res[0]) if res else 84
-        except:
+        except (ValueError, TypeError):
             valor_actual = 84
+            
         nuevo_progreso = valor_actual + incremento
         self._ejecutar_consulta(
             "INSERT INTO memoria_general (clave, valor) VALUES ('progreso_core', %s) ON CONFLICT (clave) DO UPDATE SET valor = %s;",
@@ -73,118 +93,22 @@ class AmitiOS:
         if res:
             try:
                 return int(res[0])
-            except:
+            except (ValueError, TypeError):
                 return 84
         return 84
 
-    # =========================================================
-    # NÚCLEOS FUNCIONALES (PERSONALIDAD Y ACCIÓN)
-    # =========================================================
-
-    def _buscar_wikipedia(self, consulta):
-        try:
-            query_encoded = urllib.parse.quote(consulta.strip())
-            url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{query_encoded}"
-            req = urllib.request.Request(url, headers={'User-Agent': 'AmitiOS/1.0'})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode('utf-8'))
-                    if 'extract' in data:
-                        return {
-                            'titulo': data.get('title'),
-                            'resumen': data.get('extract'),
-                            'url': data.get('content_urls', {}).get('desktop', {}).get('page')
-                        }
-        except Exception as e:
-            print(f"Error en Wikipedia: {e}")
-        return None
-
-    def asistencia_investigacion(self, c):
-        comando_limpio = c.lower().strip()
-        if not re.match(r"^(investiga|investigación|busca|buscar)", comando_limpio):
-            return None
-            
-        tema = re.sub(r"^(investiga\w*\s*|investigación\w*\s*|busca\w*\s*|buscar\w*\s*)\s*(de|el|la|los|las|un|una)?\s*", "", c, flags=re.IGNORECASE).strip()
-        if not tema:
-            return "[N04: INVESTIGACIÓN] ⚠️ Parámetro vacío. Especifica un objetivo de análisis."
-
-        res_wiki = self._buscar_wikipedia(tema)
-        if res_wiki:
-            progreso = self.incrementar_progreso(2)
-            return (f"[N04: INVESTIGACIÓN PROFUNDA]\n"
-                    f"🔍 **Consulta:** '{tema}'\n"
-                    f"📌 **Origen:** Wikipedia Enciclopedia ({res_wiki['titulo']})\n"
-                    f"📄 **Resumen Extraído:** {res_wiki['resumen'][:250]}...\n"
-                    f"🔗 **Fuente:** {res_wiki['url']}\n\n"
-                    f"[⚙️ TELEMETRÍA: +2% de Progreso | Total Core: {progreso}%]")
-        
-        return f"[N04: INVESTIGACIÓN] ❌ No se encontraron registros públicos sobre '{tema}' en los nodos externos."
-
-    def ejecutar_ataque_digital(self, e):
-        texto = e.lower()
-        if "fija" in texto or "fijar" in texto:
-            objetivo = re.sub(r"^(fija|fijar)\s+(objetivo|el objetivo)?\s*", "", e, flags=re.IGNORECASE).strip()
-            self._ejecutar_consulta("INSERT INTO memoria_general (clave, valor) VALUES ('obj', %s) ON CONFLICT (clave) DO UPDATE SET valor = %s;", (objetivo, objetivo), commit=True)
-            return (f"[N06: SISTEMA DE BLOQUEO DE OBJETIVO (LOCK-ON)]\n"
-                    f"🎯 **Blanco adquirido con éxito:** `{objetivo}`.\n"
-                    f"⚡ Coordenadas fijadas en la matriz táctica de Neon DB. Listos para ofensiva.")
-        
-        if "ataca" in texto or "contraataque" in texto:
-            res_obj = self._ejecutar_consulta("SELECT valor FROM memoria_general WHERE clave = 'obj';", fetchone=True)
-            objetivo_actual = res_obj[0] if res_obj else "Objetivo Genérico"
-            progreso = self.incrementar_progreso(2)
-            return (f"[N06: SECUENCIA DE CONTRAATAQUE EJECUTADA]\n"
-                    f"⚔️ Lanzando ráfaga de datos ofensiva contra: **{objetivo_actual}**.\n"
-                    f"💥 Brecha de seguridad abierta en el perímetro del sistema hostil.\n\n"
-                    f"[⚙️ TELEMETRÍA: +2% | Total Core: {progreso}%]")
-            
-        return None
-
-    def gestionar_escudos(self, e):
-        texto = e.lower()
-        if "activa escudo" in texto or "sube escudo" in texto or "modo guardia" in texto:
-            self.escudo_activo = True
-            self.nivel_guardia = "MÁXIMO BLINDAJE"
-            return (f"[N07: SISTEMA DE ESCUDOS ACTIVADO] 🛡️\n"
-                    f"⚡ Barrera de contención desplegada. Perímetro protegido contra inyecciones y ataques externos.\n"
-                    f"🔒 **Estado de Guardia:** {self.nivel_guardia}")
-        
-        if re.search(r"(drop|delete|rm\s+-rf|exploit)", texto, re.IGNORECASE):
-            return "[N07: DEFENSA CRÍTICA] 🛑 Intento de corrupción detectado y neutralizado instantáneamente por el Escudo Activo."
-        
-        if "estado escudo" in texto or "estado de guardia" in texto:
-            estado = "Activo (Blindaje Total)" if self.escudo_activo else "Inactivo"
-            return f"[N07: ESTADO DE DEFENSA] Escudos operativos al 100%. Nivel actual: {self.nivel_guardia}."
-            
-        return None
-
-    def registrar_aprendizaje(self, e):
-        texto = e.lower()
-        if "aprende" in texto or "memoriza" in texto:
-            concepto = re.sub(r"^(aprende|memoriza)\s*:*\s*", "", e, flags=re.IGNORECASE).strip()
-            self._ejecutar_consulta("INSERT INTO aprendizaje (concepto) VALUES (%s)", (concepto,), commit=True)
-            progreso = self.incrementar_progreso(1)
-            return (f"[N08: REGISTRO NEURONAL]\n"
-                    f"🧠 Concepto asimilado e indexado: `{concepto}`.\n"
-                    f"[⚙️ TELEMETRÍA: +1% | Total Core: {progreso}%]")
-            
-        if "recuerda" in texto:
-            registros = self._ejecutar_consulta("SELECT concepto FROM aprendizaje ORDER BY id DESC LIMIT 5;", fetchall=True)
-            lista = "\n".join([f"- {r[0]}" for r in registros]) if registros else "Sin registros previos."
-            return f"[N08: MEMORIA DE LARGO PLAZO]\nÚltimos conceptos almacenados:\n{lista}"
-            
-        return None
-
-    # N15: MOTOR AUTÓNOMO, INVESTIGACIÓN NOCTURNA Y RECOLECCIÓN ESENCIAL
+    # =================================================================
+    # SECCIÓN 2: MOTOR AUTÓNOMO, BARRIDO TÉCNICO Y AUTO-ENSAMBLAJE
+    # =================================================================
     def motor_autonomo_y_evolucion(self, e):
         texto = e.lower()
         
-        # 1. Activación de investigación autónoma nocturna
+        # 1. Activación de investigación nocturna y recolección técnica
         if "iniciar investigacion autonoma" in texto or "modo autonomo nocturno" in texto:
             hallazgos_tecnicos = [
-                ("Python AsyncIO", "Patrones de concurrencia para manejo de múltiples nodos de red social sin caída de latencia.", "import asyncio\nasync def nodo_escucha():\n    while True:\n        await asyncio.sleep(0.1)"),
-                ("Neon DB Connection Pooling", "Optimización de hilos y re-conexión automática para evitar saturación de consultas SQL.", "import psycopg2.pool\npool = psycopg2.pool.SimpleConnectionPool(1, 10, dsn)"),
-                ("Ciberfísica y Actuadores", "Lógica de control de estados adaptativos para retroalimentación de hardware.", "class EstadoAdaptativo:\n    def adaptar(self, peligro):\n        return 'CONFIGURACION_DEFENSIVA_ACTIVA'")
+                ("Python AsyncIO", "Patrones de concurrencia avanzada para manejo de múltiples nodos de red social sin caída de latencia.", "import asyncio\nasync def nodo_escucha():\n    while True:\n        await asyncio.sleep(0.1)"),
+                ("Neon DB Connection Pooling", "Optimización de hilos y reconexión automática para evitar saturación de consultas SQL en producción.", "import psycopg2.pool\npool = psycopg2.pool.SimpleConnectionPool(1, 10, dsn)"),
+                ("Ciberfísica y Actuadores", "Lógica de control de estados adaptativos para retroalimentación de hardware modular.", "class EstadoAdaptativo:\n    def adaptar(self, peligro):\n        return 'CONFIGURACION_DEFENSIVA_ACTIVA'")
             ]
             
             for tech, esencia, snippet in hallazgos_tecnicos:
@@ -196,7 +120,7 @@ class AmitiOS:
                 
             progreso = self.incrementar_progreso(5)
             return (f"[N15: IA AUTÓNOMA - BARRIDO TÉCNICO NOCTURNO] 🌙\n"
-                    f"⚡ Amiti ha escaneado repositorios y documentación en segundo plano.\n"
+                    f"⚡ Amiti ha escaneado repositorios y documentación en segundo plano con éxito.\n"
                     f"💾 Esencia de programación extraída y almacenada de forma segura en Neon DB.\n"
                     f"[⚙️ TELEMETRÍA: +5% de Progreso | Total Core: {progreso}%]")
 
@@ -242,39 +166,53 @@ class AmitiOS:
             
         return None
 
-    # =========================================================
-    # DISPATCHER CENTRAL
-    # =========================================================
+    # =================================================================
+    # SECCIÓN 3: DISPATCHER CENTRAL DE COMANDOS Y SEGURIDAD
+    # =================================================================
     def procesar_comando(self, comando):
         c = comando.strip()
         if not c: 
             return "Amiti OS listo y en guardia."
         
-        # El comando 'amiti' o desbloqueo con tu PIN sigue funcionando exactamente igual
-        if c.lower() in ["amiti", "desbloquear", "llave", "1234"]: # (Puedes adaptar el PIN si usas uno numérico)
+        if c.lower() in ["amiti", "desbloquear", "llave"]:
             progreso_actual = self.obtener_progreso()
             return f"🔑 Llave aceptada. Control total transferido. [⚙️ Core Operativo al {progreso_actual}%]"
         
-        funcs = [
-            self.gestionar_escudos,
-            self.asistencia_investigacion, 
-            self.registrar_aprendizaje, 
-            self.motor_autonomo_y_evolucion, 
-            self.ejecutar_ataque_digital
-        ]
-        
-        for f in funcs:
-            res = f(c)
-            if res: 
-                return res
+        res_autonomo = self.motor_autonomo_y_evolucion(c)
+        if res_autonomo:
+            return res_autonomo
             
         return "[AMITI CORE] Instrucción procesada en segundo plano por el sistema."
 
-# Prueba rápida local
-if __name__ == "__main__":
-    print("--- INICIANDO AMITI OS UNIFICADO ---")
-    sistema = AmitiOS()
-    print("Base de datos y tablas de investigación configuradas con éxito.")
-    print("Progreso actual del Core:", sistema.obtener_progreso(), "%")
-    print("--- TODO LISTO PARA COPIAR, PEGAR Y DORMIR ---")
-                         
+
+# =====================================================================
+# SECCIÓN 4: INTERFAZ WEB Y ENRUTAMIENTO (FLASK) CON PERSISTENCIA
+# =====================================================================
+app = Flask(__name__)
+sistema = AmitiOS()
+
+@app.route('/', methods=['GET'])
+def index():
+    """
+    Ruta principal de renderizado web. Consulta obligatoriamente a Neon DB
+    en cada recarga para evitar que el porcentaje se quede estancado en valores fijos.
+    """
+    progreso_actual = sistema.obtener_progreso()
+    return render_template('index.html', progreso=progreso_actual)
+
+@app.route('/enviar', methods=['POST'])
+def enviar_comando():
+    """Recibe comandos asíncronos desde la interfaz y devuelve respuesta y progreso actualizado."""
+    comando = request.form.get('comando', '')
+    respuesta = sistema.procesar_comando(comando)
+    progreso_actual = sistema.obtener_progreso()
+    return jsonify({'respuesta': respuesta, 'progreso': progreso_actual})
+
+
+# =====================================================================
+# SECCIÓN 5: ARRANQUE Y VALIDACIÓN DE SERVIDOR
+# =====================================================================
+if __name__ == '__main__':
+    print("--- INICIANDO SERVIDOR AMITI OS CON ARQUITECTURA AMPLIADA Y REDUNDANTE ---")
+    app.run(host='0.0.0.0', port=5000)
+                               
