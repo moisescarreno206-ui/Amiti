@@ -1,55 +1,69 @@
-<div class="amiti-loader">
-    <span id="contador">0</span> min
-</div>
+// =====================================================================
+// 1. INICIALIZACIÓN Y MÓDULO DE VOZ
+// =====================================================================
+const startTime = new Date();
 
-<script>
-    // Definir el tiempo de inicio al cargar la vista para el contador
-    const startTime = new Date();
-
-    // Contador de minutos de inteligencia activo
-    setInterval(() => {
-        let mins = Math.floor((new Date() - startTime) / 60000);
-        let contadorElem = document.getElementById('contador');
-        if (contadorElem) {
-            contadorElem.innerText = mins;
-        }
-    }, 10000);
-
-    // =====================================================================
-    // MÓDULO DE VOZ - IDENTIDAD FEMENINA Y ANALÍTICA
-    // =====================================================================
-    function hablarTexto(texto) {
-        if ('speechSynthesis' in window) {
-            // Cancelar cualquier audio anterior para evitar solapamientos
-            window.speechSynthesis.cancel();
-
-            // Limpieza de etiquetas Markdown para una lectura limpia y natural
-            let textoPlano = texto.replace(/[*#`_\[\]]/g, '').replace(/\[.*?\]/g, '');
-
-            let mensaje = new SpeechSynthesisUtterance(textoPlano);
-            mensaje.lang = 'es-ES'; // Configuración en español
-            mensaje.rate = 1.0;   // Velocidad estándar
-            mensaje.pitch = 1.2;  // Tono ligeramente más alto acorde a su identidad femenina
-
-            // Búsqueda inteligente de voz femenina en español en el dispositivo móvil
-            let voces = window.speechSynthesis.getVoices();
-            let vozFemenina = voces.find(v => v.lang.startsWith('es') && (v.name.includes('Female') || v.name.includes('Helena') || v.name.includes('Laura') || v.name.includes('Monica') || v.name.includes('Lucia')));
-            
-            if (vozFemenina) {
-                mensaje.voice = vozFemenina;
-            }
-
-            window.speechSynthesis.speak(mensaje);
-        } else {
-            console.log("El navegador móvil no soporta síntesis de voz nativa.");
-        }
+// Contador de minutos de inteligencia activo
+setInterval(() => {
+    let mins = Math.floor((new Date() - startTime) / 60000);
+    let contadorElem = document.getElementById('contador');
+    if (contadorElem) {
+        contadorElem.innerText = mins;
     }
+}, 10000);
 
-    // Asegurar precarga de voces del sistema del teléfono
+function hablarTexto(texto) {
     if ('speechSynthesis' in window) {
-        window.speechSynthesis.onvoiceschanged = () => {
-            window.speechSynthesis.getVoices();
-        };
+        window.speechSynthesis.cancel();
+
+        let textoPlano = texto.replace(/[*#`_\[\]]/g, '').replace(/\[.*?\]/g, '');
+        let mensaje = new SpeechSynthesisUtterance(textoPlano);
+        mensaje.lang = 'es-ES';
+        mensaje.rate = 1.0;
+        mensaje.pitch = 1.2;
+
+        let voces = window.speechSynthesis.getVoices();
+        let vozFemenina = voces.find(v => v.lang.startsWith('es') && (v.name.includes('Female') || v.name.includes('Helena') || v.name.includes('Laura') || v.name.includes('Monica') || v.name.includes('Lucia')));
+        
+        if (vozFemenina) {
+            mensaje.voice = vozFemenina;
+        }
+
+        window.speechSynthesis.speak(mensaje);
+    } else {
+        console.log("El navegador móvil no soporta síntesis de voz nativa.");
     }
-            </script>
-            
+}
+
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+    };
+}
+
+// =====================================================================
+// 2. FUNCIÓN DE ENVÍO DE COMANDOS (INTEGRACIÓN FETCH)
+// =====================================================================
+function enviarComandoAmiti(textoComando) {
+    fetch('/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'comando=' + encodeURIComponent(textoComando)
+    })
+    .then(res => res.json())
+    .then(data => {
+        // 1. Mostrar texto en pantalla (asegúrate de que imprimirEnTerminal coincida con tu función visual)
+        if (typeof imprimirEnTerminal === 'function') {
+            imprimirEnTerminal(data.respuesta);
+        }
+        
+        // 2. Actualizar telemetría de progreso (asegúrate de que actualizarCirculoProgreso coincida)
+        if (typeof actualizarCirculoProgreso === 'function') {
+            actualizarCirculoProgreso(data.progreso);
+        }
+        
+        // 3. ¡Hacer que Amiti hable su respuesta con su propia voz!
+        hablarTexto(data.respuesta);
+    })
+    .catch(err => console.error("Error en la petición:", err));
+}
