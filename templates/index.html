@@ -13,50 +13,60 @@
         }
     }, 10000);
 
-    // 2. Módulo de voz robusto (Blinda contra emojis y símbolos para móviles)
+    // 2. Módulo de voz con desbloqueo y limpieza estricta para móviles
     function hablarTextoConNucleo(texto, datosIdentidad) {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
+        if (!('speechSynthesis' in window)) return;
 
-            // LIMPIEZA TOTAL: Elimina corchetes, Markdown y TODOS los emojis o símbolos gráficos que silencian Android
-            let textoPlano = texto
-                .replace(/\[.*?\]/g, '') // Elimina bloques entre corchetes
-                .replace(/[*#`_\[\]()]/g, '') // Elimina caracteres markdown
-                .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '') // Elimina emojis universales
-                .replace(/[🔑🌙⚡💾⚙️✨🔹📌💻]/g, '') // Filtro de respaldo para emojis específicos de Amiti
-                .trim();
+        window.speechSynthesis.cancel();
 
-            if (!textoPlano) return; // Si no queda texto legible, no ejecuta
+        // Limpieza total de emojis y caracteres que silencian el sintetizador en Android
+        let textoPlano = texto
+            .replace(/\[.*?\]/g, '')
+            .replace(/[*#`_\[\]()]/g, '')
+            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+            .replace(/[🔑🌙⚡💾⚙️✨🔹📌💻]/g, '')
+            .trim();
 
-            let mensaje = new SpeechSynthesisUtterance(textoPlano);
-            mensaje.lang = 'es-ES';
-            mensaje.rate = 1.0;
-            
-            // Ajuste dinámico de tono dictado por el núcleo (Femenino / 1.2)
-            mensaje.pitch = datosIdentidad && datosIdentidad.genero === "Femenino" ? 1.2 : 1.0;
+        if (!textoPlano) return;
 
-            let voces = window.speechSynthesis.getVoices();
-            let vozFemenina = voces.find(v => v.lang.startsWith('es') && (v.name.includes('Female') || v.name.includes('Helena') || v.name.includes('Laura') || v.name.includes('Monica') || v.name.includes('Lucia')));
-            
+        let mensaje = new SpeechSynthesisUtterance(textoPlano);
+        mensaje.lang = 'es-ES';
+        mensaje.rate = 1.0;
+        mensaje.pitch = datosIdentidad && datosIdentidad.genero === "Femenino" ? 1.2 : 1.0;
+
+        // Selección inteligente de voz en español disponible en el teléfono
+        let voces = window.speechSynthesis.getVoices();
+        if (voces.length > 0) {
+            let vozFemenina = voces.find(v => v.lang.startsWith('es') && (v.name.includes('Female') || v.name.includes('Helena') || v.name.includes('Laura') || v.name.includes('Monica') || v.name.includes('Lucia') || v.name.includes('Google')));
             if (vozFemenina) {
                 mensaje.voice = vozFemenina;
+            } else {
+                let vozEspanol = voces.find(v => v.lang.startsWith('es'));
+                if (vozEspanol) mensaje.voice = vozEspanol;
             }
-
-            // Forzar activación de audio en el entorno móvil
-            window.speechSynthesis.resume();
-            window.speechSynthesis.speak(mensaje);
         }
+
+        window.speechSynthesis.speak(mensaje);
     }
 
-    // Precarga obligatoria de voces en dispositivos móviles
+    // Forzar la carga de voces del sistema operativo móvil
     if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => {
             window.speechSynthesis.getVoices();
         };
     }
 
-    // 3. Función central de comunicación asíncrona con el servidor
+    // 3. Función central con el TRUCO DE DESBLOQUEO MÓVIL
     function enviarComandoAmiti(textoComando) {
+        if (!textoComando.trim()) return;
+
+        // --- TRUCO CRÍTICO PARA MÓVILES ---
+        // Al ejecutarse síncronamente al tocar el botón, desbloquea el canal de audio del navegador
+        if ('speechSynthesis' in window) {
+            let dummy = new SpeechSynthesisUtterance("");
+            window.speechSynthesis.speak(dummy);
+        }
+
         fetch('/enviar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -64,7 +74,7 @@
         })
         .then(res => res.json())
         .then(data => {
-            // Mostrar texto completo con emojis en la interfaz visual de la terminal
+            // Mostrar texto en la interfaz visual
             if (typeof imprimirEnTerminal === 'function') {
                 imprimirEnTerminal(data.respuesta);
             }
@@ -74,7 +84,7 @@
                 actualizarCirculoProgreso(data.progreso);
             }
             
-            // Amiti habla limpiando los emojis automáticamente
+            // Amiti habla de inmediato con la voz sintetizada
             hablarTextoConNucleo(data.respuesta, data.identidad);
         })
         .catch(err => console.error("Error en enlace con el núcleo:", err));
