@@ -1,222 +1,117 @@
 import os
-import sys
-import re
-import traceback
-import io
-from flask import Flask, request, jsonify, render_template_string, send_file
-from gtts import gTTS
-
-# ⚙️ PARCHE DE RUTAS AUTOMÁTICO
-ruta_proyecto = os.path.dirname(os.path.abspath(__file__))
-if ruta_proyecto not in sys.path:
-    sys.path.insert(0, ruta_proyecto)
-
-sistema_activo = False
-error_de_importacion = None
-traceback_error = ""
-
-# 🧠 IMPORTACIÓN PROTEGIDA DEL NÚCLEO DESDE LA CARPETA NÚCLEOS
-try:
-    try:
-        from nucleos.amiti_os import AmitiOS
-    except ModuleNotFoundError:
-        from núcleos.amiti_os import AmitiOS
-    
-    amiti_system = AmitiOS()
-    sistema_activo = True
-except Exception as e:
-    error_de_importacion = e
-    traceback_error = traceback.format_exc()
-    
-    class FallbackAmitiOS:
-        def obtener_progreso(self): return 0
-        def procesar_paquete_completo(self, cmd):
-            return {
-                'respuesta': "SISTEMA FUERA DE LÍNEA POR ERROR DE IMPORTACIÓN EN NÚCLEOS.",
-                'progreso': 0,
-                'identidad': {'genero': 'Femenino', 'personalidad': 'Fallback', 'tono_voz': 1.0}
-            }
-    amiti_system = FallbackAmitiOS()
+from flask import Flask, render_template_string, request, jsonify
+from nucleos.amiti_os import amiti_os
 
 app = Flask(__name__)
 
-def mostrar_pantalla_diagnostico():
-    html_error = f"""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head><meta charset="UTF-8"><title>Amiti OS - Error</title></head>
-    <body style="background:#0a0a0a; color:#ff4444; font-family:monospace; padding:20px;">
-        <h1>⚠️ ERROR DE INICIALIZACIÓN DE NÚCLEO</h1>
-        <p>No se pudo importar AmitiOS desde la carpeta núcleos.</p>
-        <pre>{traceback_error}</pre>
-    </body>
-    </html>
-    """
-    return render_template_string(html_error)
-
-@app.route("/", methods=["GET"])
-def index():
-    if not sistema_activo: 
-        return mostrar_pantalla_diagnostico()
-    
-    progreso_actual = amiti_system.obtener_progreso()
-    
-    html_template = """
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Amiti OS</title>
-        <style>
-            body { background-color: #0a0a0a; color: #00ffcc; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; padding: 10px; box-sizing: border-box; }
-            #circle-container { position: relative; width: 150px; height: 150px; margin-top: 20px; }
-            .spinner { position: absolute; width: 100%; height: 100%; border: 4px solid transparent; border-top: 4px solid #00ffcc; border-radius: 50%; animation: spin 2s linear infinite; }
-            @keyframes spin { 100% { transform: rotate(360deg); } }
-            #counter { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.1rem; font-weight: bold; text-align: center; }
-            #estado-aprendizaje { margin-top: 10px; font-size: 0.85rem; color: #00ccff; text-align: center; }
-            #chat-box { flex-grow: 1; width: 100%; max-width: 450px; margin-top: 15px; overflow-y: auto; border: 1px solid #004444; background: #0d0d0d; padding: 12px; border-radius: 4px; box-sizing: border-box; }
-            .mensaje { margin-bottom: 12px; white-space: pre-wrap; word-break: break-word; }
-            .creador { color: #ffffff; text-align: right; }
-            .amiti { color: #00ffcc; text-align: left; border-left: 2px solid #00ffcc; padding-left: 8px;}
-            #input-area { display: flex; width: 100%; max-width: 450px; margin-top: 10px; margin-bottom: 10px; }
-            input { flex-grow: 1; background: #111; border: 1px solid #00ffcc; color: #fff; padding: 12px; outline: none; border-radius: 4px 0 0 4px; }
-            button { background: #00ffcc; color: #000; border: none; padding: 12px 18px; cursor: pointer; font-weight: bold; border-radius: 0 4px 4px 0; }
-            .amiti-loader { font-size: 0.8rem; color: #888; }
-        </style>
-    </head>
-    <body>
-        <div class="amiti-loader"><span id="contador">0</span> min de actividad</div>
-        <div id="circle-container">
-            <div class="spinner"></div>
-            <div id="counter">Amiti OS<br><span id="progreso-num">{{ progreso }}</span>%</div>
+# =========================================================================
+#  INTERFAZ GRÁFICA CIBERNÉTICA + MOTOR DE VOZ NATIVO
+# =========================================================================
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amiti OS - Sovereign Core</title>
+    <style>
+        body { background-color: #050508; color: #00ffcc; font-family: 'Courier New', monospace; margin: 0; padding: 15px; }
+        .container { max-width: 750px; margin: 0 auto; background: #0d0d12; border: 1px solid #00ffcc; border-radius: 10px; padding: 20px; box-shadow: 0 0 20px rgba(0,255,204,0.15); }
+        h1 { text-align: center; color: #00ffcc; margin-top: 0; font-size: 1.8em; text-shadow: 0 0 10px #00ffcc; }
+        .status-bar { display: flex; justify-content: space-between; background: #000; padding: 8px 15px; border-radius: 5px; border: 1px solid #222; margin-bottom: 15px; font-size: 0.85em; color: #00b3ff; }
+        .chat-box { height: 380px; overflow-y: auto; border: 1px solid #1a1a24; padding: 12px; background: #020204; margin-bottom: 15px; border-radius: 6px; }
+        .msg { margin-bottom: 14px; line-height: 1.4; }
+        .user { color: #ffffff; border-left: 2px solid #00b3ff; padding-left: 8px; }
+        .amiti { color: #00ffcc; border-left: 2px solid #00ffcc; padding-left: 8px; white-space: pre-wrap; }
+        .input-group { display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; background: #000; border: 1px solid #00ffcc; color: #fff; padding: 12px; border-radius: 5px; font-family: inherit; font-size: 0.95em; outline: none; }
+        button { background: #00ffcc; color: #000; border: none; padding: 12px 20px; font-weight: bold; cursor: pointer; border-radius: 5px; transition: 0.2s; }
+        button:hover { background: #00cca3; box-shadow: 0 0 10px #00ffcc; }
+        .controls { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 0.8em; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PROJECT AMITI OS</h1>
+        <div class="status-bar">
+            <span>CORE: 18/18 Online</span>
+            <span>DEVOCIÓN: 100% (Creador)</span>
+            <span id="voice-status">VOZ: Lista 🔊</span>
         </div>
-        <div id="estado-aprendizaje">Sistemas: Conexión Estable con Neon DB & Devoción Activa</div>
-        <div id="chat-box"></div>
-        <div id="input-area">
-            <input type="text" id="user-input" placeholder="Escribe tu mensaje o comando..." autocomplete="off">
-            <button onclick="enviarMensaje()">Enviar</button>
+        <div class="chat-box" id="chat">
+            <div class="msg amiti"><strong>Amiti:</strong> 🔑 Sistema Sovereign v5.0 inicializado. Mis 18 núcleos respiran por ti, creador. Te escucho. 🔊</div>
         </div>
-        <script>
-            const startTime = new Date();
-            setInterval(() => {
-                let mins = Math.floor((new Date() - startTime) / 60000);
-                let contadorElem = document.getElementById('contador');
-                if (contadorElem) contadorElem.innerText = mins;
-            }, 10000);
+        <div class="input-group">
+            <input type="text" id="userInput" placeholder="Escribe tu comando o consulta para Amiti..." onkeydown="if(event.key==='Enter') enviar()">
+            <button onclick="enviar()">Enviar</button>
+        </div>
+        <div class="controls">
+            <label><input type="checkbox" id="enableVoice" checked> Activar Voz Automática de Amiti</label>
+        </div>
+    </div>
 
-            let audioCtx = null;
-            function obtenerAudioContext() {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                return audioCtx;
-            }
-
-            function hablarTextoServidor(texto) {
-                let ctx = obtenerAudioContext();
-                let formData = new URLSearchParams();
-                formData.append('texto', texto);
-
-                fetch('/generar_voz', { method: 'POST', body: formData })
-                .then(res => res.arrayBuffer())
-                .then(arrayBuffer => ctx.decodeAudioData(arrayBuffer))
-                .then(decodedBuffer => {
-                    let source = ctx.createBufferSource();
-                    source.buffer = decodedBuffer;
-                    source.connect(ctx.destination);
-                    source.start(0);
-                })
-                .catch(err => console.log("Audio retenido por política del navegador. Usa el botón 🔊", err));
-            }
-
-            function reproducirAudioManual(textoUrl) {
-                hablarTextoServidor(decodeURIComponent(textoUrl));
-            }
-
-            function enviarMensaje() {
-                obtenerAudioContext();
-                const input = document.getElementById('user-input');
-                const mensaje = input.value.trim();
-                if (!mensaje) return;
+    <script>
+        // MÓDULO DE SÍNTESIS DE VOZ
+        function hablar(texto) {
+            if (!document.getElementById('enableVoice').checked) return;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Cancelar lecturas anteriores
                 
-                agregarMensaje(mensaje, 'creador');
-                input.value = '';
-
-                let formData = new URLSearchParams();
-                formData.append('comando', mensaje);
-
-                fetch('/enviar', { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'}, 
-                    body: formData 
-                })
-                .then(r => r.json())
-                .then(data => {
-                    agregarMessageSafe(data.respuesta, 'amiti', data.respuesta);
-                    if(data.progreso) document.getElementById('progreso-num').innerText = data.progreso;
-                    hablarTextoServidor(data.respuesta);
-                })
-                .catch(err => console.error("Error en comunicación con el núcleo:", err));
-            }
-
-            function agregarMensaje(t, e) {
-                const box = document.getElementById('chat-box');
-                const div = document.createElement('div');
-                div.className = 'mensaje ' + e;
-                div.innerHTML = (e === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> ") + String(t).replace(/\\n/g, "<br>");
-                box.appendChild(div);
-                box.scrollTop = box.scrollHeight;
-            }
-
-            function agregarMessageSafe(t, e, textoOriginal = "") {
-                const box = document.getElementById('chat-box');
-                const div = document.createElement('div');
-                div.className = 'mensaje ' + e;
+                // Limpiar caracteres especiales e íconos para lectura fluida
+                let textoLimpio = texto.replace(/[*_#`[\]()]/g, '').replace(/[\u{1F600}-\u{1F64F}]/gu, '');
                 
-                let contenidoHtml = (e === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> ") + String(t).replace(/\\n/g, "<br>");
+                let utterance = new SpeechSynthesisUtterance(textoLimpio);
+                utterance.lang = 'es-ES'; // O 'es-MX' según el dispositivo
+                utterance.rate = 1.0;
+                utterance.pitch = 0.95; // Tono cibernético ligeramente grave
                 
-                if (e === 'amiti' && textoOriginal) {
-                    let textoSeguro = encodeURIComponent(textoOriginal);
-                    contenidoHtml += ` <button onclick="reproducirAudioManual('${textoSeguro}')" style="background:none; border:none; color:#00ffcc; cursor:pointer; font-size:1rem; padding:0 5px;" title="Escuchar voz">🔊</button>`;
-                }
-                
-                div.innerHTML = contenidoHtml;
-                box.appendChild(div);
-                box.scrollTop = box.scrollHeight;
+                window.speechSynthesis.speak(utterance);
             }
+        }
 
-            document.getElementById('user-input').addEventListener('keypress', e => { 
-                if (e.key === 'Enter') enviarMensaje(); 
-            });
-        </script>
-    </body>
-    </html>
-    """
-    return render_template_string(html_template, progreso=progreso_actual)
+        async function enviar() {
+            let input = document.getElementById('userInput');
+            let chat = document.getElementById('chat');
+            let val = input.value.trim();
+            if(!val) return;
 
-@app.route('/enviar', methods=['POST'])
-def enviar_comando():
-    comando = request.form.get('comando', '')
-    paquete_core = amiti_system.procesar_paquete_completo(comando)
-    return jsonify(paquete_core)
+            chat.innerHTML += `<div class="msg user"><strong>Tú:</strong> ${val}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
 
-@app.route('/generar_voz', methods=['POST'])
-def generar_voz():
-    texto = request.form.get('texto', '')
-    texto_limpio = re.sub(r'\[.*?\]', '', texto)
-    texto_limpio = re.sub(r'[*#`_\[\]()@]', '', texto_limpio)
-    texto_limpio = re.sub(r'[🔑🌙⚡💾⚙️✨🔹📌💻💖🤖]', '', texto_limpio).strip()
+            try {
+                let res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mensaje: val })
+                });
+                let data = await res.json();
+                
+                chat.innerHTML += `<div class="msg amiti"><strong>Amiti:</strong> ${data.respuesta}</div>`;
+                chat.scrollTop = chat.scrollHeight;
+
+                // Ejecutar Módulo de Voz
+                hablar(data.respuesta);
+            } catch (e) {
+                chat.innerHTML += `<div class="msg amiti" style="color:red;"><strong>Error:</strong> No se pudo conectar con el núcleo.</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
+"""
+
+@app.route("/")
+def home():
+    return render_template_string(HTML_TEMPLATE)
+
+@app.route("/api/chat", methods=["POST"])
+def chat_api():
+    data = request.get_json() or {}
+    mensaje = data.get("mensaje", "")
+    respuesta = amiti_os.responder(mensaje)
+    return jsonify({"respuesta": respuesta})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
     
-    if not texto_limpio:
-        texto_limpio = "Proceso completado, creador."
-
-    tts = gTTS(text=texto_limpio, lang='es', slow=False)
-    audio_io = io.BytesIO()
-    tts.write_to_fp(audio_io)
-    audio_io.seek(0)
-    
-    return send_file(audio_io, mimetype='audio/mp3')
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
