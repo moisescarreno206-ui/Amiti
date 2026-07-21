@@ -5,7 +5,7 @@ from nucleos.amiti_os import amiti_os
 app = Flask(__name__)
 
 # =========================================================================
-#  INTERFAZ GRÁFICA CIBERNÉTICA + MOTOR DE VOZ NATIVO (RAW STRING FIX)
+#  INTERFAZ GRÁFICA CIBERNÉTICA + MOTOR DE VOZ NATIVO (100% SINTAXIS SEGURA)
 # =========================================================================
 HTML_TEMPLATE = r"""
 <!DOCTYPE html>
@@ -57,8 +57,8 @@ HTML_TEMPLATE = r"""
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 
-                // Limpiar caracteres especiales e íconos para lectura fluida
-                let textoLimpio = texto.replace(/[*_#`[\]()]/g, '').replace(/[\u{1F600}-\u{1F64F}]/gu, '');
+                // Limpieza de símbolos de formato para la lectura oral
+                let textoLimpio = texto.replace(/[*_#`[\]()]/g, '');
                 
                 let utterance = new SpeechSynthesisUtterance(textoLimpio);
                 utterance.lang = 'es-ES';
@@ -113,4 +113,3 @@ def chat_api():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-    
