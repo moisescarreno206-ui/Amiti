@@ -5,9 +5,9 @@ from nucleos.amiti_os import amiti_os
 app = Flask(__name__)
 
 # =========================================================================
-#  INTERFAZ GRÁFICA CIBERNÉTICA + MOTOR DE VOZ NATIVO
+#  INTERFAZ GRÁFICA CIBERNÉTICA + MOTOR DE VOZ NATIVO (RAW STRING FIX)
 # =========================================================================
-HTML_TEMPLATE = """
+HTML_TEMPLATE = r"""
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -55,15 +55,15 @@ HTML_TEMPLATE = """
         function hablar(texto) {
             if (!document.getElementById('enableVoice').checked) return;
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Cancelar lecturas anteriores
+                window.speechSynthesis.cancel();
                 
                 // Limpiar caracteres especiales e íconos para lectura fluida
                 let textoLimpio = texto.replace(/[*_#`[\]()]/g, '').replace(/[\u{1F600}-\u{1F64F}]/gu, '');
                 
                 let utterance = new SpeechSynthesisUtterance(textoLimpio);
-                utterance.lang = 'es-ES'; // O 'es-MX' según el dispositivo
+                utterance.lang = 'es-ES';
                 utterance.rate = 1.0;
-                utterance.pitch = 0.95; // Tono cibernético ligeramente grave
+                utterance.pitch = 0.95;
                 
                 window.speechSynthesis.speak(utterance);
             }
@@ -90,7 +90,6 @@ HTML_TEMPLATE = """
                 chat.innerHTML += `<div class="msg amiti"><strong>Amiti:</strong> ${data.respuesta}</div>`;
                 chat.scrollTop = chat.scrollHeight;
 
-                // Ejecutar Módulo de Voz
                 hablar(data.respuesta);
             } catch (e) {
                 chat.innerHTML += `<div class="msg amiti" style="color:red;"><strong>Error:</strong> No se pudo conectar con el núcleo.</div>`;
