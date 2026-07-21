@@ -97,8 +97,21 @@ def index():
                 }
             }, 10000);
 
-            // 2. Módulo de voz por streaming (Servidor Python gTTS -> HTML5 Audio)
+            // 2. Módulo de Web Audio API para saltar restricciones móviles
+            let audioCtx = null;
+
+            function obtenerAudioContext() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                return audioCtx;
+            }
+
             function hablarTextoServidor(texto) {
+                let ctx = obtenerAudioContext();
                 let formData = new URLSearchParams();
                 formData.append('texto', texto);
 
@@ -106,19 +119,28 @@ def index():
                     method: 'POST',
                     body: formData
                 })
-                .then(res => res.blob())
-                .then(blob => {
-                    let audioUrl = URL.createObjectURL(blob);
-                    let audio = new Audio(audioUrl);
-                    audio.play().catch(err => {
-                        console.log("Reproducción de audio bloqueada o inactiva:", err);
-                    });
+                .then(res => res.arrayBuffer())
+                .then(arrayBuffer => ctx.decodeAudioData(arrayBuffer))
+                .then(decodedBuffer => {
+                    let source = ctx.createBufferSource();
+                    source.buffer = decodedBuffer;
+                    source.connect(ctx.destination);
+                    source.start(0);
                 })
-                .catch(err => console.error("Error al obtener la voz del servidor:", err));
+                .catch(err => console.log("Audio automático retenido por política del navegador. Usa el botón 🔊", err));
             }
 
-            // 3. Envío de mensajes unificado (Funciona para 'llave', comandos y chat normal)
+            // Reproducción manual instantánea al tocar el botón de altavoz
+            function reproducirAudioManual(textoUrl) {
+                let textoDecodificado = decodeURIComponent(textoUrl);
+                hablarTextoServidor(textoDecodificado);
+            }
+
+            // 3. Envío de mensajes unificado con desbloqueo táctil
             function enviarMensaje() {
+                // Desbloquea el canal de audio del navegador de forma síncrona con el toque
+                obtenerAudioContext();
+
                 const input = document.getElementById('user-input');
                 const mensaje = input.value.trim();
                 if (!mensaje) return;
@@ -133,20 +155,29 @@ def index():
                 })
                 .then(r => r.json())
                 .then(data => {
-                    agregarMensaje(data.respuesta, 'amiti');
+                    agregarMensaje(data.respuesta, 'amiti', data.respuesta);
                     if(data.progreso) document.getElementById('progreso-num').innerText = data.progreso;
                     
-                    // ¡Amiti habla de inmediato con el audio generado por Python en cualquier respuesta!
+                    // Amiti intenta hablar de inmediato
                     hablarTextoServidor(data.respuesta);
                 })
                 .catch(err => console.error("Error en comunicación con el núcleo:", err));
             }
 
-            function agregarMensaje(t, e) {
+            function agregarMensaje(t, e, textoOriginal = "") {
                 const box = document.getElementById('chat-box');
                 const div = document.createElement('div');
                 div.className = 'mensaje ' + e;
-                div.innerHTML = (e === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> ") + String(t).replace(/\\n/g, "<br>");
+                
+                let contenidoHtml = (e === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> ") + String(t).replace(/\\n/g, "<br>");
+                
+                // Si es un mensaje de Amiti, le agregamos un botón de altavoz 🔊 100% infalible en móviles
+                if (e === 'amiti' && textoOriginal) {
+                    let textoSeguro = encodeURIComponent(textoOriginal);
+                    contenidoHtml += ` <button onclick="reproducirAudioManual('${textoSeguro}')" style="background:none; border:none; color:#00ffcc; cursor:pointer; font-size:1rem; padding:0 5px;" title="Escuchar voz">🔊</button>`;
+                }
+                
+                div.innerHTML = contenidoHtml;
                 box.appendChild(div);
                 box.scrollTop = box.scrollHeight;
             }
@@ -165,7 +196,7 @@ def chat():
     data = request.json or {}
     texto = data.get("texto", "").strip()
     
-    # Lógica de desbloqueo flexible (Llave)
+    # Lógica de desbloqueo (Llave)
     if texto.lower() in ["amiti", "desbloquear", "llave"]:
         progreso = amiti_system.obtener_progreso()
         return jsonify({
@@ -182,10 +213,10 @@ def chat():
 
 @app.route('/generar_voz', methods=['POST'])
 def generar_voz():
-    """Genera el audio en el servidor usando gTTS y lo transmite como MP3 al navegador"""
+    """Genera el audio en el servidor usando gTTS y lo transmite como MP3"""
     texto = request.form.get('texto', '')
     
-    # Limpieza estricta de emojis y símbolos para que gTTS suene impecable
+    # Limpieza estricta de emojis y símbolos
     texto_limpio = re.sub(r'\[.*?\]', '', texto)
     texto_limpio = re.sub(r'[*#`_\[\]()@]', '', texto_limpio)
     texto_limpio = re.sub(r'[🔑🌙⚡💾⚙️✨🔹📌💻]', '', texto_limpio).strip()
@@ -193,7 +224,6 @@ def generar_voz():
     if not texto_limpio:
         texto_limpio = "Proceso completado."
 
-    # Generación de voz en español en memoria RAM
     tts = gTTS(text=texto_limpio, lang='es', slow=False)
     audio_io = io.BytesIO()
     tts.write_to_fp(audio_io)
