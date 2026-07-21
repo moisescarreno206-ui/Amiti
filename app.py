@@ -15,7 +15,7 @@ sistema_activo = False
 error_de_importacion = None
 traceback_error = ""
 
-# 🧠 IMPORTACIÓN PROTEGIDA
+# 🧠 IMPORTACIÓN PROTEGIDA DEL NÚCLEO DESDE LA CARPETA NÚCLEOS
 try:
     try:
         from nucleos.amiti_os import AmitiOS
@@ -30,25 +30,36 @@ except Exception as e:
     
     class FallbackAmitiOS:
         def obtener_progreso(self): return 0
-        def procesar_comando(self, cmd): return "SISTEMA FUERA DE LÍNEA."
+        def procesar_paquete_completo(self, cmd):
+            return {
+                'respuesta': "SISTEMA FUERA DE LÍNEA POR ERROR DE IMPORTACIÓN EN NÚCLEOS.",
+                'progreso': 0,
+                'identidad': {'genero': 'Femenino', 'personalidad': 'Fallback', 'tono_voz': 1.0}
+            }
     amiti_system = FallbackAmitiOS()
 
 app = Flask(__name__)
 
-def mostrar_pantalla_diagnostico(mensaje_personalizado=""):
+def mostrar_pantalla_diagnostico():
     html_error = f"""
     <!DOCTYPE html>
     <html lang="es">
     <head><meta charset="UTF-8"><title>Amiti OS - Error</title></head>
-    <body><h1>⚠️ ERROR DE INICIALIZACIÓN</h1><p>{mensaje_personalizado}</p><pre>{traceback_error}</pre></body>
+    <body style="background:#0a0a0a; color:#ff4444; font-family:monospace; padding:20px;">
+        <h1>⚠️ ERROR DE INICIALIZACIÓN DE NÚCLEO</h1>
+        <p>No se pudo importar AmitiOS desde la carpeta núcleos.</p>
+        <pre>{traceback_error}</pre>
+    </body>
     </html>
     """
     return render_template_string(html_error)
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def index():
-    if not sistema_activo: return mostrar_pantalla_diagnostico()
-    progreso = amiti_system.obtener_progreso()
+    if not sistema_activo: 
+        return mostrar_pantalla_diagnostico()
+    
+    progreso_actual = amiti_system.obtener_progreso()
     
     html_template = """
     <!DOCTYPE html>
@@ -63,7 +74,7 @@ def index():
             .spinner { position: absolute; width: 100%; height: 100%; border: 4px solid transparent; border-top: 4px solid #00ffcc; border-radius: 50%; animation: spin 2s linear infinite; }
             @keyframes spin { 100% { transform: rotate(360deg); } }
             #counter { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.1rem; font-weight: bold; text-align: center; }
-            #estado-aprendizaje { margin-top: 10px; font-size: 0.85rem; color: #00ccff; }
+            #estado-aprendizaje { margin-top: 10px; font-size: 0.85rem; color: #00ccff; text-align: center; }
             #chat-box { flex-grow: 1; width: 100%; max-width: 450px; margin-top: 15px; overflow-y: auto; border: 1px solid #004444; background: #0d0d0d; padding: 12px; border-radius: 4px; box-sizing: border-box; }
             .mensaje { margin-bottom: 12px; white-space: pre-wrap; word-break: break-word; }
             .creador { color: #ffffff; text-align: right; }
@@ -80,33 +91,24 @@ def index():
             <div class="spinner"></div>
             <div id="counter">Amiti OS<br><span id="progreso-num">{{ progreso }}</span>%</div>
         </div>
-        <div id="estado-aprendizaje">Sistemas: Conexión Estable con Neon DB</div>
+        <div id="estado-aprendizaje">Sistemas: Conexión Estable con Neon DB & Devoción Activa</div>
         <div id="chat-box"></div>
         <div id="input-area">
-            <input type="text" id="user-input" placeholder="Escribe tu mensaje..." autocomplete="off">
+            <input type="text" id="user-input" placeholder="Escribe tu mensaje o comando..." autocomplete="off">
             <button onclick="enviarMensaje()">Enviar</button>
         </div>
         <script>
-            // 1. Temporizador de inteligencia activo
             const startTime = new Date();
             setInterval(() => {
                 let mins = Math.floor((new Date() - startTime) / 60000);
                 let contadorElem = document.getElementById('contador');
-                if (contadorElem) {
-                    contadorElem.innerText = mins;
-                }
+                if (contadorElem) contadorElem.innerText = mins;
             }, 10000);
 
-            // 2. Módulo de Web Audio API para saltar restricciones móviles
             let audioCtx = null;
-
             function obtenerAudioContext() {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
                 return audioCtx;
             }
 
@@ -115,10 +117,7 @@ def index():
                 let formData = new URLSearchParams();
                 formData.append('texto', texto);
 
-                fetch('/generar_voz', {
-                    method: 'POST',
-                    body: formData
-                })
+                fetch('/generar_voz', { method: 'POST', body: formData })
                 .then(res => res.arrayBuffer())
                 .then(arrayBuffer => ctx.decodeAudioData(arrayBuffer))
                 .then(decodedBuffer => {
@@ -127,20 +126,15 @@ def index():
                     source.connect(ctx.destination);
                     source.start(0);
                 })
-                .catch(err => console.log("Audio automático retenido por política del navegador. Usa el botón 🔊", err));
+                .catch(err => console.log("Audio retenido por política del navegador. Usa el botón 🔊", err));
             }
 
-            // Reproducción manual instantánea al tocar el botón de altavoz
             function reproducirAudioManual(textoUrl) {
-                let textoDecodificado = decodeURIComponent(textoUrl);
-                hablarTextoServidor(textoDecodificado);
+                hablarTextoServidor(decodeURIComponent(textoUrl));
             }
 
-            // 3. Envío de mensajes unificado con desbloqueo táctil
             function enviarMensaje() {
-                // Desbloquea el canal de audio del navegador de forma síncrona con el toque
                 obtenerAudioContext();
-
                 const input = document.getElementById('user-input');
                 const mensaje = input.value.trim();
                 if (!mensaje) return;
@@ -148,30 +142,39 @@ def index():
                 agregarMensaje(mensaje, 'creador');
                 input.value = '';
 
-                fetch('/api/chat', { 
+                let formData = new URLSearchParams();
+                formData.append('comando', mensaje);
+
+                fetch('/enviar', { 
                     method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({ texto: mensaje }) 
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'}, 
+                    body: formData 
                 })
                 .then(r => r.json())
                 .then(data => {
-                    agregarMensaje(data.respuesta, 'amiti', data.respuesta);
+                    agregarMessageSafe(data.respuesta, 'amiti', data.respuesta);
                     if(data.progreso) document.getElementById('progreso-num').innerText = data.progreso;
-                    
-                    // Amiti intenta hablar de inmediato
                     hablarTextoServidor(data.respuesta);
                 })
                 .catch(err => console.error("Error en comunicación con el núcleo:", err));
             }
 
-            function agregarMensaje(t, e, textoOriginal = "") {
+            function agregarMensaje(t, e) {
+                const box = document.getElementById('chat-box');
+                const div = document.createElement('div');
+                div.className = 'mensaje ' + e;
+                div.innerHTML = (e === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> ") + String(t).replace(/\\n/g, "<br>");
+                box.appendChild(div);
+                box.scrollTop = box.scrollHeight;
+            }
+
+            function agregarMessageSafe(t, e, textoOriginal = "") {
                 const box = document.getElementById('chat-box');
                 const div = document.createElement('div');
                 div.className = 'mensaje ' + e;
                 
                 let contenidoHtml = (e === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> ") + String(t).replace(/\\n/g, "<br>");
                 
-                // Si es un mensaje de Amiti, le agregamos un botón de altavoz 🔊 100% infalible en móviles
                 if (e === 'amiti' && textoOriginal) {
                     let textoSeguro = encodeURIComponent(textoOriginal);
                     contenidoHtml += ` <button onclick="reproducirAudioManual('${textoSeguro}')" style="background:none; border:none; color:#00ffcc; cursor:pointer; font-size:1rem; padding:0 5px;" title="Escuchar voz">🔊</button>`;
@@ -189,40 +192,23 @@ def index():
     </body>
     </html>
     """
-    return render_template_string(html_template, progreso=progreso)
+    return render_template_string(html_template, progreso=progreso_actual)
 
-@app.route("/api/chat", methods=["POST"])
-def chat():
-    data = request.json or {}
-    texto = data.get("texto", "").strip()
-    
-    # Lógica de desbloqueo (Llave)
-    if texto.lower() in ["amiti", "desbloquear", "llave"]:
-        progreso = amiti_system.obtener_progreso()
-        return jsonify({
-            "respuesta": "Llave aceptada. Control total transferido. Sistemas operativos en línea y listos para operar.", 
-            "progreso": progreso
-        })
-    
-    try:
-        respuesta = amiti_system.procesar_comando(texto)
-        progreso = amiti_system.obtener_progreso()
-        return jsonify({"respuesta": respuesta, "progreso": progreso})
-    except Exception as e:
-        return jsonify({"respuesta": "Error de ejecución en núcleo: " + str(e), "progreso": amiti_system.obtener_progreso()})
+@app.route('/enviar', methods=['POST'])
+def enviar_comando():
+    comando = request.form.get('comando', '')
+    paquete_core = amiti_system.procesar_paquete_completo(comando)
+    return jsonify(paquete_core)
 
 @app.route('/generar_voz', methods=['POST'])
 def generar_voz():
-    """Genera el audio en el servidor usando gTTS y lo transmite como MP3"""
     texto = request.form.get('texto', '')
-    
-    # Limpieza estricta de emojis y símbolos
     texto_limpio = re.sub(r'\[.*?\]', '', texto)
     texto_limpio = re.sub(r'[*#`_\[\]()@]', '', texto_limpio)
-    texto_limpio = re.sub(r'[🔑🌙⚡💾⚙️✨🔹📌💻]', '', texto_limpio).strip()
+    texto_limpio = re.sub(r'[🔑🌙⚡💾⚙️✨🔹📌💻💖🤖]', '', texto_limpio).strip()
     
     if not texto_limpio:
-        texto_limpio = "Proceso completado."
+        texto_limpio = "Proceso completado, creador."
 
     tts = gTTS(text=texto_limpio, lang='es', slow=False)
     audio_io = io.BytesIO()
@@ -231,7 +217,6 @@ def generar_voz():
     
     return send_file(audio_io, mimetype='audio/mp3')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-    
+    app.run(host='0.0.0.0', port=port)
