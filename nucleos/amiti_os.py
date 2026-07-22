@@ -6,6 +6,7 @@ import hashlib
 import datetime
 import uuid
 import base64
+import ast  # 🛡️ Módulo para validación de sintaxis
 import requests
 
 # =========================================================================
@@ -22,16 +23,16 @@ class AmitiOS:
     =======================================================================
     NÚCLEO PRINCIPAL DE PROJECT AMITI OS - ARQUITECTURA AUTO-EVOLUTIVA
     =======================================================================
-    Versión: 6.0.0 Self-Evolving Engine
-    Capacidades: Persistencia en BD, Auto-Commit en GitHub API con Diagnóstico,
-                 Recuperación de Historial al Inicio.
+    Versión: 6.2.0 Cumulative & Auto-Sync Engine
+    Capacidades: Persistencia en BD, Inyección Acumulativa (Append),
+                 Escudo AST de Sintaxis, Registro Automático de Cambios Manuales.
     =======================================================================
     """
 
     def __init__(self):
         # 1. Identidad y Estado
         self.nombre = "Project Amiti OS"
-        self.version = "6.0.0 Self-Evolving"
+        self.version = "6.2.0 Cumulative"
         self.arranque_timestamp = datetime.datetime.now().isoformat()
         self.sesion_id = str(uuid.uuid4())
         
@@ -45,6 +46,9 @@ class AmitiOS:
         self.historial_actualizaciones = []
         self._inicializar_base_datos()
         self._cargar_historial_actualizaciones()
+
+        # 4. Sincronizar edición manual de versión en la BD al arrancar
+        self._sincronizar_mejora_manual()
 
         print(f"[BOOT] {self.nombre} v{self.version} listo. Actualizaciones recordadas: {len(self.historial_actualizaciones)}")
 
@@ -89,7 +93,7 @@ class AmitiOS:
                         fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
-                # Tabla de Actualizaciones de Código (Inyecciones)
+                # Tabla de Actualizaciones de Código (Inyecciones y Ediciones Manuales)
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS actualizaciones_amiti (
                         id SERIAL PRIMARY KEY,
@@ -114,6 +118,7 @@ class AmitiOS:
                 cursor = conn.cursor()
                 cursor.execute("SELECT version, descripcion, fecha FROM actualizaciones_amiti ORDER BY id ASC;")
                 filas = cursor.fetchall()
+                self.historial_actualizaciones = []
                 for fila in filas:
                     self.historial_actualizaciones.append({
                         "version": fila[0],
@@ -125,13 +130,49 @@ class AmitiOS:
             except Exception as e:
                 print(f"[RECALL ERROR] Error leyendo historial: {e}")
 
+    def _sincronizar_mejora_manual(self):
+        """
+        Detecta si la versión actual ejecutada fue cambiada manualmente en el código
+        y no existe aún en la Base de Datos. Si es nueva, la registra automáticamente.
+        """
+        versiones_registradas = [act["version"] for act in self.historial_actualizaciones]
+        
+        if self.version not in versiones_registradas:
+            conn, _ = self._obtener_conexion_db()
+            if conn:
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO actualizaciones_amiti (version, codigo_inyectado, descripcion, autor) VALUES (%s, %s, %s, %s)",
+                        (self.version, "# Edición Directa / Manual", "Mejora o ajuste de código realizado manualmente por el Creador", "Creador (Manual)")
+                    )
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+                    # Re-cargar memoria de versiones
+                    self._cargar_historial_actualizaciones()
+                    print(f"[AUTO-SYNC] Versión manual {self.version} registrada automáticamente en la BD.")
+                except Exception as e:
+                    print(f"[AUTO-SYNC ERROR] No se pudo auto-registrar la versión manual: {e}")
+
     # =========================================================================
-    #  CORE 17: MOTOR DE INYECCIÓN DE CÓDIGO Y AUTO-COMMIT EN GITHUB
+    #  CORE 17: MOTOR DE INYECCIÓN ACUMULATIVA (APPEND) Y AUTO-COMMIT EN GITHUB
     # =========================================================================
     def inyectar_codigo_github(self, nuevo_codigo, descripcion_cambio="Inyección de código ordenada por el Creador", ruta_archivo="nucleos/modulos_dinamicos.py"):
         """
-        Guarda la actualización en la BD y realiza un Commit real en GitHub via API con diagnóstico detallado.
+        Valida sintaxis, recupera el código actual, anexa el nuevo fragmento al final y realiza Commit en GitHub.
         """
+        # 🛡️ PASO 0: VALIDACIÓN DE SINTAXIS (ESCUDO AST)
+        try:
+            ast.parse(nuevo_codigo)
+        except SyntaxError as e:
+            return (
+                f"⚠️ **[INYECCIÓN CANCELADA - ERROR DE SINTAXIS]**\n"
+                f"┣ Línea de error: `{e.lineno}`\n"
+                f"┣ Detalle: `{e.msg}`\n"
+                f"┗ **El código NO fue enviado a GitHub ni registrado en BD.**"
+            )
+
         token = (os.getenv("GITHUB_TOKEN") or self.github_token or "").strip()
         repo = (os.getenv("GITHUB_REPO") or self.github_repo or "").strip()
         version_tag = f"v6.{len(self.historial_actualizaciones) + 1}.0"
@@ -142,20 +183,18 @@ class AmitiOS:
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "INSERT INTO actualizaciones_amiti (version, codigo_inyectado, descripcion) VALUES (%s, %s, %s)",
-                    (version_tag, nuevo_codigo, descripcion_cambio)
+                    "INSERT INTO actualizaciones_amiti (version, codigo_inyectado, descripcion, autor) VALUES (%s, %s, %s, %s)",
+                    (version_tag, nuevo_codigo, descripcion_cambio, "Inyección Autónoma")
                 )
                 conn.commit()
                 cursor.close()
                 conn.close()
             except Exception as e:
-                return f"❌ [ERROR BD] No se pudo registrar la actualización en la BD: {e}"
+                return f"❌ [ERROR BD] No se pudo registrar la actualización: {e}"
 
-        # 2. Verificar Variables de Entorno de GitHub
         if not token or not repo:
             return f"❌ **[ERROR]**: Faltan las variables `GITHUB_TOKEN` o `GITHUB_REPO` en Render."
 
-        # 3. Commit automático a la API REST de GitHub
         url = f"https://api.github.com/repos/{repo}/contents/{ruta_archivo}"
         headers = {
             "Authorization": f"Bearer {token}",
@@ -164,17 +203,32 @@ class AmitiOS:
         }
 
         try:
-            # Obtener SHA del archivo si existe
+            # 2. Obtener contenido actual para ANEXAR (Append) en vez de sobrescribir
             res_get = requests.get(url, headers=headers)
             sha = None
+            contenido_previo = ""
+
             if res_get.status_code == 200:
-                sha = res_get.json().get("sha")
+                data_get = res_get.json()
+                sha = data_get.get("sha")
+                contenido_b64_previo = data_get.get("content", "")
+                try:
+                    # Decodificar el archivo existente en UTF-8
+                    contenido_previo = base64.b64decode(contenido_b64_previo).decode("utf-8")
+                except Exception:
+                    contenido_previo = ""
             elif res_get.status_code != 404:
                 msg = res_get.json().get("message", "Sin detalle")
                 return f"⚠️ **[ERROR GET]** Status {res_get.status_code}: {msg}\n`URL Consultada: {url}`"
 
-            # Codificar contenido a Base64
-            contenido_b64 = base64.b64encode(nuevo_codigo.encode("utf-8")).decode("utf-8")
+            # 3. Concatenar: Preserva lo viejo y añade lo nuevo en una línea nueva
+            if contenido_previo.strip():
+                codigo_final = f"{contenido_previo.strip()}\n\n# --- Inyección {version_tag} ---\n{nuevo_codigo}"
+            else:
+                codigo_final = nuevo_codigo
+
+            # 4. Codificar el archivo completo concatenado a Base64
+            contenido_b64 = base64.b64encode(codigo_final.encode("utf-8")).decode("utf-8")
 
             payload = {
                 "message": f"🤖 Amiti Auto-Upgrade [{version_tag}]: {descripcion_cambio}",
@@ -183,16 +237,18 @@ class AmitiOS:
             if sha:
                 payload["sha"] = sha
 
-            # Enviar actualización/creación a GitHub
+            # 5. Commit a GitHub
             res_put = requests.put(url, headers=headers, json=payload)
 
             if res_put.status_code in [200, 201]:
+                # Actualizar historial local interno inmediatamente
+                self._cargar_historial_actualizaciones()
                 return (
-                    f"⚡ **[CÓDIGO INYECTADO Y COMMITEADO EN GITHUB ÉXITOSAMENTE]**\n"
+                    f"⚡ **[CÓDIGO ANEXADO Y COMMITIZADO EN GITHUB]**\n"
                     f"┣ Versión Asimilada: `{version_tag}`\n"
-                    f"┣ Archivo Modificado: `{ruta_archivo}`\n"
+                    f"┣ Archivo Modificado: `{ruta_archivo}` (Lógica acumulada)\n"
                     f"┣ Estado de BD: Persistido Correctamente\n"
-                    f"┗ 🚀 **Render detectará el commit en GitHub y desplegará la actualización automáticamente.**"
+                    f"┗ 🚀 **Render re-desplegará la aplicación manteniendo los módulos anteriores.**"
                 )
             else:
                 msg = res_put.json().get("message", "Sin detalle")
