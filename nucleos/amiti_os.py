@@ -23,7 +23,7 @@ class AmitiOS:
     NÚCLEO PRINCIPAL DE PROJECT AMITI OS - ARQUITECTURA AUTO-EVOLUTIVA
     =======================================================================
     Versión: 6.0.0 Self-Evolving Engine
-    Capacidades: Persistencia en BD, Auto-Commit en GitHub API,
+    Capacidades: Persistencia en BD, Auto-Commit en GitHub API con Diagnóstico,
                  Recuperación de Historial al Inicio.
     =======================================================================
     """
@@ -38,8 +38,8 @@ class AmitiOS:
         # 2. Credenciales e Integraciones
         self.database_url = os.environ.get("DATABASE_URL")
         self.neon_database_url = os.environ.get("NEON_DATABASE_URL")
-        self.github_token = os.environ.get("GITHUB_TOKEN")      # Token de acceso de GitHub
-        self.github_repo = os.environ.get("GITHUB_REPO")        # Formato: "usuario/nombre-repo"
+        self.github_token = os.environ.get("GITHUB_TOKEN", "").strip()
+        self.github_repo = os.environ.get("GITHUB_REPO", "").strip()
         
         # 3. Cargar Memoria Histórica de Actualizaciones desde BD
         self.historial_actualizaciones = []
@@ -128,14 +128,16 @@ class AmitiOS:
     # =========================================================================
     #  CORE 17: MOTOR DE INYECCIÓN DE CÓDIGO Y AUTO-COMMIT EN GITHUB
     # =========================================================================
-    def inyectar_codigo_github(self, nuevo_codigo, descripcion_cambio, ruta_archivo="nucleos/modulos_dinamicos.py"):
+    def inyectar_codigo_github(self, nuevo_codigo, descripcion_cambio="Inyección de código ordenada por el Creador", ruta_archivo="nucleos/modulos_dinamicos.py"):
         """
-        Guarda la actualización en la BD y realiza un Commit real en GitHub via API.
+        Guarda la actualización en la BD y realiza un Commit real en GitHub via API con diagnóstico detallado.
         """
+        token = (os.getenv("GITHUB_TOKEN") or self.github_token or "").strip()
+        repo = (os.getenv("GITHUB_REPO") or self.github_repo or "").strip()
+        version_tag = f"v6.{len(self.historial_actualizaciones) + 1}.0"
+
         # 1. Guardar en Base de Datos
         conn, _ = self._obtener_conexion_db()
-        version_tag = f"v6.{len(self.historial_actualizaciones) + 1}.0"
-        
         if conn:
             try:
                 cursor = conn.cursor()
@@ -149,49 +151,52 @@ class AmitiOS:
             except Exception as e:
                 return f"❌ [ERROR BD] No se pudo registrar la actualización en la BD: {e}"
 
-        # 2. Si las llaves de GitHub no están configuradas, solo guarda en BD
-        if not self.github_token or not self.github_repo:
-            return (
-                f"💾 **[ACTUALIZACIÓN GUARDADA EN BD]**\n"
-                f"┣ Versión: `{version_tag}`\n"
-                f"┣ Nota: Para enviar el commit automático a GitHub, agrega `GITHUB_TOKEN` y `GITHUB_REPO` en las Variables de Entorno de Render."
-            )
+        # 2. Verificar Variables de Entorno de GitHub
+        if not token or not repo:
+            return f"❌ **[ERROR]**: Faltan las variables `GITHUB_TOKEN` o `GITHUB_REPO` en Render."
 
         # 3. Commit automático a la API REST de GitHub
-        url = f"https://api.github.com/repos/{self.github_repo}/contents/{ruta_archivo}"
+        url = f"https://api.github.com/repos/{repo}/contents/{ruta_archivo}"
         headers = {
-            "Authorization": f"Bearer {self.github_token}",
-            "Accept": "application/vnd.github.v3+json"
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "Amiti-OS"
         }
 
         try:
-            # Obtener SHA del archivo si ya existe
+            # Obtener SHA del archivo si existe
             res_get = requests.get(url, headers=headers)
-            sha = res_get.json().get("sha") if res_get.status_code == 200 else None
+            sha = None
+            if res_get.status_code == 200:
+                sha = res_get.json().get("sha")
+            elif res_get.status_code != 404:
+                msg = res_get.json().get("message", "Sin detalle")
+                return f"⚠️ **[ERROR GET]** Status {res_get.status_code}: {msg}\n`URL Consultada: {url}`"
 
             # Codificar contenido a Base64
             contenido_b64 = base64.b64encode(nuevo_codigo.encode("utf-8")).decode("utf-8")
 
             payload = {
                 "message": f"🤖 Amiti Auto-Upgrade [{version_tag}]: {descripcion_cambio}",
-                "content": contenido_b64,
-                "branch": "main"
+                "content": contenido_b64
             }
             if sha:
                 payload["sha"] = sha
 
+            # Enviar actualización/creación a GitHub
             res_put = requests.put(url, headers=headers, json=payload)
 
             if res_put.status_code in [200, 201]:
                 return (
-                    f"⚡ **[CÓDIGO INYECTADO Y COMMITEADO EN GITHUB]**\n"
+                    f"⚡ **[CÓDIGO INYECTADO Y COMMITEADO EN GITHUB ÉXITOSAMENTE]**\n"
                     f"┣ Versión Asimilada: `{version_tag}`\n"
                     f"┣ Archivo Modificado: `{ruta_archivo}`\n"
                     f"┣ Estado de BD: Persistido Correctamente\n"
                     f"┗ 🚀 **Render detectará el commit en GitHub y desplegará la actualización automáticamente.**"
                 )
             else:
-                return f"⚠️ **[ERROR GITHUB API]** Status {res_put.status_code}: {res_put.json().get('message')}"
+                msg = res_put.json().get("message", "Sin detalle")
+                return f"⚠️ **[ERROR PUT]** Status {res_put.status_code}: {msg}\n`URL Consultada: {url}`"
 
         except Exception as e:
             return f"❌ [ERROR INYECCIÓN] Fallo de red con la API de GitHub: {e}"
@@ -234,3 +239,4 @@ class AmitiOS:
         return f"🤖 **[CORE 18: SISTEMA CENTRAL]** Comando procesado: *'{mensaje}'*. Recordando {len(self.historial_actualizaciones)} actualizaciones previas. 🔊"
 
 amiti_os = AmitiOS()
+        
