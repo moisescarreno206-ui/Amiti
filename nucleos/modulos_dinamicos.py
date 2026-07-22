@@ -8,3 +8,7 @@ def investigar_web_amiti(query): import urllib.parse, requests; r = requests.get
 
 # --- Inyección v6.12.0 ---
 def test_nucleo(): return "Núcleo dinámico respondiendo en tiempo real"
+
+# --- Inyección v6.13.0 ---
+def funcion_b64():
+    return "Base64 funcionando correctamente"
