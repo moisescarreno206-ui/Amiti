@@ -1,1 +1,1 @@
-def test_evolucion(): return "Sistema verificado"
+import ast  def validar_codigo_python(codigo):     """     Módulo dinámico de validación AST.     Permite a Amiti verificar la sintaxis de cualquier fragmento de código.     """     try:         ast.parse(codigo)         return True, "✅ Sintaxis correcta"     except SyntaxError as e:         return False, f"⚠️ Error de sintaxis en línea {e.lineno}: {e.msg}"
