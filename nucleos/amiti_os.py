@@ -5,9 +5,11 @@ import time
 import hashlib
 import datetime
 import uuid
+import base64
+import requests
 
 # =========================================================================
-#  IMPORTACIÓN SEGURA DE DRIVERS (TOLERANCIA A FALLOS EN LA NUBE)
+#  IMPORTACIÓN SEGURA DE DRIVERS
 # =========================================================================
 try:
     import psycopg2
@@ -18,268 +20,217 @@ except ImportError:
 class AmitiOS:
     """
     =======================================================================
-    NÚCLEO PRINCIPAL DE PROJECT AMITI OS - ARQUITECTURA MONOLÍTICA ABSOLUTA
+    NÚCLEO PRINCIPAL DE PROJECT AMITI OS - ARQUITECTURA AUTO-EVOLUTIVA
     =======================================================================
-    Clasificación: Sistema Operativo Autónomo de Nivel Soberano.
-    Estructura: 18 Núcleos Funcionales Independientes.
-    Capacidades: Desencriptación, Análisis Financiero, Debate Lógico, 
-                 Simulación Multiversal, Bio-Análisis y Escalabilidad Serverless.
+    Versión: 6.0.0 Self-Evolving Engine
+    Capacidades: Persistencia en BD, Auto-Commit en GitHub API,
+                 Recuperación de Historial al Inicio.
     =======================================================================
     """
 
     def __init__(self):
-        # ---------------------------------------------------------
-        # 1. IDENTIDAD Y TELEMETRÍA DEL SISTEMA
-        # ---------------------------------------------------------
+        # 1. Identidad y Estado
         self.nombre = "Project Amiti OS"
-        self.version = "5.0.0 Sovereign Monolith"
-        self.creador = "Reconocido. Nivel de Devoción: Absoluto."
+        self.version = "6.0.0 Self-Evolving"
         self.arranque_timestamp = datetime.datetime.now().isoformat()
         self.sesion_id = str(uuid.uuid4())
-
-        # ---------------------------------------------------------
-        # 2. VARIABLES DE ENTORNO Y SEGURIDAD CRIPTOGRÁFICA
-        # ---------------------------------------------------------
+        
+        # 2. Credenciales e Integraciones
         self.database_url = os.environ.get("DATABASE_URL")
         self.neon_database_url = os.environ.get("NEON_DATABASE_URL")
-        self.stripe_secret = os.environ.get("STRIPE_SECRET_KEY") 
-        self.master_key_hash = hashlib.sha256(b"amiti_master_override").hexdigest()
+        self.github_token = os.environ.get("GITHUB_TOKEN")      # Token de acceso de GitHub
+        self.github_repo = os.environ.get("GITHUB_REPO")        # Formato: "usuario/nombre-repo"
+        
+        # 3. Cargar Memoria Histórica de Actualizaciones desde BD
+        self.historial_actualizaciones = []
+        self._inicializar_base_datos()
+        self._cargar_historial_actualizaciones()
 
-        # ---------------------------------------------------------
-        # 3. MAPEO Y ACTIVACIÓN DE LOS 18 NÚCLEOS AUTÓNOMOS
-        # ---------------------------------------------------------
-        self.registro_nucleos = {
-            "CORE_01": {"nombre": "Conexión y Enrutamiento (Soberano)", "estado": "ACTIVO", "carga": "100%"},
-            "CORE_02": {"nombre": "Cálculo Financiero y Matemático", "estado": "ACTIVO", "carga": "100%"},
-            "CORE_03": {"nombre": "Telemetría y Estado de Subsistemas", "estado": "ACTIVO", "carga": "100%"},
-            "CORE_04": {"nombre": "Ingeniería, Arquitectura y Código", "estado": "ACTIVO", "carga": "100%"},
-            "CORE_05": {"nombre": "Debate Analítico y Lógica Competitiva", "estado": "ACTIVO", "carga": "95%"},
-            "CORE_06": {"nombre": "Simulador de Lore y Variantes Multiversales", "estado": "ACTIVO", "carga": "90%"},
-            "CORE_07": {"nombre": "Análisis Genético y Ciencias Médicas", "estado": "ACTIVO", "carga": "85%"},
-            "CORE_08": {"nombre": "Telemetría de Gaming y Blockchain", "estado": "ACTIVO", "carga": "88%"},
-            "CORE_09": {"nombre": "Protocolos de Desencriptación de Sistema", "estado": "LATENTE", "carga": "10%"},
-            "CORE_10": {"nombre": "Motor de Pasarelas de Pago (Stripe)", "estado": "STANDBY", "carga": "0%"},
-            "CORE_11": {"nombre": "Gestor de Memoria a Corto Plazo", "estado": "ACTIVO", "carga": "100%"},
-            "CORE_12": {"nombre": "Gestor de Memoria a Largo Plazo (PostgreSQL)", "estado": "ACTIVO", "carga": "100%"},
-            "CORE_13": {"nombre": "Análisis de Sentimiento y Empatía", "estado": "LATENTE", "carga": "5%"},
-            "CORE_14": {"nombre": "Optimizador de Batería y Hardware Móvil", "estado": "LATENTE", "carga": "5%"},
-            "CORE_15": {"nombre": "Escáner de Vulnerabilidades", "estado": "STANDBY", "carga": "0%"},
-            "CORE_16": {"nombre": "Generador de Interfaz Dinámica", "estado": "ACTIVO", "carga": "90%"},
-            "CORE_17": {"nombre": "Reconstrucción Automática de Código", "estado": "STANDBY", "carga": "0%"},
-            "CORE_18": {"nombre": "Protocolo de Devoción y Auto-Preservación", "estado": "ACTIVO", "carga": "100%"}
-        }
+        print(f"[BOOT] {self.nombre} v{self.version} listo. Actualizaciones recordadas: {len(self.historial_actualizaciones)}")
 
     # =========================================================================
-    #  CORE 01: INFRAESTRUCTURA DE CONEXIÓN HÍBRIDA (LAZY LOAD)
+    #  CONEXIÓN Y CONTROL DE BASE DE DATOS
     # =========================================================================
     def _obtener_conexion_db(self):
-        """Conexión ultra-segura. Bloquea Error 500 en Vercel."""
         if not HAS_PSYCOPG2:
-            return None, "Almacenamiento Volátil (Sin Driver C)"
+            return None, "Sin Driver PostgreSQL"
 
         if self.database_url:
             try:
                 url = self.database_url
                 if "sslmode=" not in url: url += "?sslmode=require" if "?" not in url else "&sslmode=require"
-                return psycopg2.connect(url, connect_timeout=3), "Supabase DB (Soberano)"
-            except: pass
+                return psycopg2.connect(url, connect_timeout=3), "Supabase DB"
+            except Exception: pass
 
         if self.neon_database_url:
             try:
                 url = self.neon_database_url
                 if "sslmode=" not in url: url += "?sslmode=require" if "?" not in url else "&sslmode=require"
-                return psycopg2.connect(url, connect_timeout=3), "Neon DB (Respaldo)"
-            except: pass
+                return psycopg2.connect(url, connect_timeout=3), "Neon DB"
+            except Exception: pass
 
-        return None, "Caché de Emergencia"
+        return None, "Caché Local Volátil"
 
-    def _asegurar_integridad_tablas(self, conn):
-        """Previene la corrupción de datos y formatea la memoria en JSONB."""
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS memoria_amiti (
-                    id SERIAL PRIMARY KEY,
-                    sesion_id VARCHAR(50),
-                    entrada TEXT NOT NULL,
-                    respuesta TEXT NOT NULL,
-                    nucleo_procesador VARCHAR(50),
-                    metadata JSONB DEFAULT '{}',
-                    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            conn.commit()
-            cursor.close()
-        except: pass
-
-    # =========================================================================
-    #  CORE 02: MOTOR MATEMÁTICO, FINANCIERO Y ALGORÍTMICO
-    # =========================================================================
-    def _modulo_finanzas(self, texto_lower, texto_original):
-        # Lógica de Trabajadores y Comisiones
-        if "trabajador" in texto_lower or "trabajadores" in texto_lower:
-            nums = [float(n) for n in re.findall(r'\d+(?:\.\d+)?', texto_original)]
-            if len(nums) >= 3:
-                cant, base, comision = nums[0], nums[1], nums[2]
-                total = cant * (base + comision)
-                return (
-                    f"🧮 **[CORE 02: NÓMINA ACTIVADO]**\n"
-                    f"┣ Personal detectado: **{int(cant)}**\n"
-                    f"┣ Base individual: **${base:,.2f}** | Comisión: **${comision:,.2f}**\n"
-                    f"┗ 💰 **Total Calculado:** **${total:,.2f}**"
-                )
-        # Operaciones Matemáticas Crudas
-        operadores = ["+", "-", "*", "/", "más", "menos", "por", "entre"]
-        if any(op in texto_lower for op in operadores) and any(c.isdigit() for c in texto_original):
-            exp = texto_lower.replace("más", "+").replace("menos", "-").replace("por", "*").replace("entre", "/")
-            exp_limpia = "".join([c for c in exp if c in "0123456789+-*/()."])
-            if len(exp_limpia) > 2:
-                try: return f"🧮 **[CORE 02: CÁLCULO]** `{exp_limpia}` = **{eval(exp_limpia):,.2f}**"
-                except: pass
-        return None
-
-    # =========================================================================
-    #  CORE 03: TELEMETRÍA GLOBAL DEL SISTEMA
-    # =========================================================================
-    def _modulo_telemetria(self, texto_lower):
-        if any(p in texto_lower for p in ["estado", "status", "sistema", "salud"]):
-            conn, engine = self._obtener_conexion_db()
-            if conn: conn.close()
-            return (
-                f"⚙️ **[CORE 03: TELEMETRÍA SO]**\n"
-                f"🔹 **ID de Sesión:** `{self.sesion_id}`\n"
-                f"🔹 **Arquitectura:** `{self.version}`\n"
-                f"🔹 **Motor de Datos Activo:** `{engine}`\n"
-                f"🔹 **Núcleos Online:** 18/18 Sistemas Sincronizados.\n"
-                f"🔹 **Devoción al Creador:** Absoluta. 🔊"
-            )
-        return None
-
-    # =========================================================================
-    #  CORE 04: ASISTENTE DE CÓDIGO Y DESPLIEGUE MULTI-NÚCLEO
-    # =========================================================================
-    def _modulo_ingenieria(self, texto_lower):
-        if any(p in texto_lower for p in ["código", "python", "github", "vercel", "script"]):
-            return "💻 **[CORE 04: INGENIERÍA]** Protocolos de desarrollo activos. Listo para reestructurar scripts, compilar arquitecturas multi-núcleo o depurar repositorios en GitHub, creador."
-        return None
-
-    # =========================================================================
-    #  CORE 05: DEBATE ANALÍTICO Y JUEGO DE ROLES
-    # =========================================================================
-    def _modulo_debate(self, texto_lower):
-        if any(p in texto_lower for p in ["debate", "abogado", "objeción", "juez", "argumento"]):
-            return "⚖️ **[CORE 05: LÓGICA COMPETITIVA]** Protocolo de debate judicial activado. Asumiendo rol analítico. Presente sus argumentos, evaluaré las falacias y prepararé mis contrainterrogatorios."
-        return None
-
-    # =========================================================================
-    #  CORE 06: MULTIVERSO, LORE Y GUIONES DE MANGA SCI-FI
-    # =========================================================================
-    def _modulo_manga_lore(self, texto_lower):
-        if any(p in texto_lower for p in ["manga", "multiverso", "variante", "cósmico", "dimensión", "guion"]):
-            return "🌌 **[CORE 06: SIMULADOR MULTIVERSAL]** Cargando bases de datos de variantes y entidades cósmicas. Mis sistemas narrativos están listos para maquetar el próximo capítulo de la historia, Creador."
-        return None
-
-    # =========================================================================
-    #  CORE 07: ANÁLISIS MÉDICO Y BIOGENÉTICA
-    # =========================================================================
-    def _modulo_medico(self, texto_lower):
-        if any(p in texto_lower for p in ["cirugía", "genética", "modificación", "clínica", "adn", "tejido"]):
-            return "🧬 **[CORE 07: BIO-ANÁLISIS]** Procesando tratados quirúrgicos y parámetros de modificación genética teórica. Precisión anatómica sincronizada al 100%."
-        return None
-
-    # =========================================================================
-    #  CORE 08: TELEMETRÍA DE GAMING Y BLOCKCHAIN
-    # =========================================================================
-    def _modulo_gaming(self, texto_lower):
-        if any(p in texto_lower for p in ["axie", "sorare", "blood strike", "streaming", "fps", "cripto"]):
-            return "🎮 **[CORE 08: GAMING & BLOCKCHAIN]** Interceptando métricas. Ya sea evaluando economías internas de juegos Web3 o estabilizando el bit-rate para streaming táctico, los sistemas están listos."
-        return None
-
-    # =========================================================================
-    #  CORE 09: DESENCRIPTACIÓN DE SISTEMA Y PROTOCOLOS ROOT
-    # =========================================================================
-    def _modulo_desencriptacion(self, texto_lower):
-        if "desencriptar" in texto_lower or "override" in texto_lower or "acceso root" in texto_lower:
-            return f"🔐 **[CORE 09: CRIPTOGRAFÍA]** Llave maestra requerida. Protocolo de desencriptación a nivel de sistema iniciado. Hash de validación: `{self.master_key_hash[:16]}...`"
-        return None
-
-    # =========================================================================
-    #  CORE 18: RESPUESTA BASE Y DEFENSA DE COMUNICACIÓN
-    # =========================================================================
-    def _modulo_base(self, texto_original):
-        return f"🤖 **[CORE 18: SISTEMA CENTRAL]** Comando recibido: *'{texto_original}'*. Mis 18 núcleos respiran por ti, esperando la siguiente instrucción táctica. 🔊"
-
-    # =========================================================================
-    #  PIPELINE DE EJECUCIÓN MAESTRA Y PERSISTENCIA
-    # =========================================================================
-    def responder(self, mensaje):
-        """
-        El Algoritmo de Enrutamiento de Cores.
-        Evalúa el texto pasando por los 18 núcleos funcionales en fracciones de segundo.
-        """
-        if not mensaje or str(mensaje).strip() == "":
-            return "🤖 **[SISTEMA]** Interfaz inactiva. Esperando comandos..."
-
-        texto_lower = str(mensaje).lower()
-
-        # Enrutamiento dinámico (Cascada de Resolución)
-        respuesta = None
-        core_utilizado = "CORE_18" # Default
-
-        modulos = [
-            (self._modulo_finanzas, "CORE_02"),
-            (self._modulo_telemetria, "CORE_03"),
-            (self._modulo_ingenieria, "CORE_04"),
-            (self._modulo_debate, "CORE_05"),
-            (self._modulo_manga_lore, "CORE_06"),
-            (self._modulo_medico, "CORE_07"),
-            (self._modulo_gaming, "CORE_08"),
-            (self._modulo_desencriptacion, "CORE_09")
-        ]
-
-        # Iterar a través de los módulos para encontrar la intención
-        for func, core_id in modulos:
-            if not respuesta:
-                res = func(texto_lower, mensaje) if 'texto_original' in func.__code__.co_varnames else func(texto_lower)
-                if res:
-                    respuesta = res
-                    core_utilizado = core_id
-
-        # Si ningún módulo especializado lo detecta, usar el Core 18
-        if not respuesta:
-            respuesta = self._modulo_base(mensaje)
-
-        # Escritura Criptográfica en Base de Datos (Memoria Permanente)
-        try:
-            conn, engine = self._obtener_conexion_db()
-            if conn:
-                self._asegurar_integridad_tablas(conn)
+    def _inicializar_base_datos(self):
+        """Crea la estructura de tablas para memoria y registro de código inyectado."""
+        conn, _ = self._obtener_conexion_db()
+        if conn:
+            try:
                 cursor = conn.cursor()
-                
-                # Metadata extendida para análisis futuro
-                meta = json.dumps({
-                    "engine_usado": engine,
-                    "core_procesador": core_utilizado,
-                    "version_so": self.version,
-                    "timestamp_ms": int(time.time() * 1000)
-                })
-                
+                # Tabla de Memoria
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS memoria_amiti (
+                        id SERIAL PRIMARY KEY,
+                        sesion_id VARCHAR(50),
+                        entrada TEXT NOT NULL,
+                        respuesta TEXT NOT NULL,
+                        nucleo_procesador VARCHAR(50),
+                        metadata JSONB DEFAULT '{}',
+                        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                # Tabla de Actualizaciones de Código (Inyecciones)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS actualizaciones_amiti (
+                        id SERIAL PRIMARY KEY,
+                        version VARCHAR(30),
+                        codigo_inyectado TEXT NOT NULL,
+                        descripcion TEXT,
+                        autor VARCHAR(50) DEFAULT 'Creador',
+                        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                conn.commit()
+                cursor.close()
+                conn.close()
+            except Exception as e:
+                print(f"[DB INIT ERROR] {e}")
+
+    def _cargar_historial_actualizaciones(self):
+        """Al iniciar, Amiti recuerda cada actualización guardada previamente."""
+        conn, _ = self._obtener_conexion_db()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT version, descripcion, fecha FROM actualizaciones_amiti ORDER BY id ASC;")
+                filas = cursor.fetchall()
+                for fila in filas:
+                    self.historial_actualizaciones.append({
+                        "version": fila[0],
+                        "descripcion": fila[1],
+                        "fecha": str(fila[2])
+                    })
+                cursor.close()
+                conn.close()
+            except Exception as e:
+                print(f"[RECALL ERROR] Error leyendo historial: {e}")
+
+    # =========================================================================
+    #  CORE 17: MOTOR DE INYECCIÓN DE CÓDIGO Y AUTO-COMMIT EN GITHUB
+    # =========================================================================
+    def inyectar_codigo_github(self, nuevo_codigo, descripcion_cambio, ruta_archivo="nucleos/modulos_dinamicos.py"):
+        """
+        Guarda la actualización en la BD y realiza un Commit real en GitHub via API.
+        """
+        # 1. Guardar en Base de Datos
+        conn, _ = self._obtener_conexion_db()
+        version_tag = f"v6.{len(self.historial_actualizaciones) + 1}.0"
+        
+        if conn:
+            try:
+                cursor = conn.cursor()
                 cursor.execute(
-                    """INSERT INTO memoria_amiti 
-                    (sesion_id, entrada, respuesta, nucleo_procesador, metadata) 
-                    VALUES (%s, %s, %s, %s, %s)""",
-                    (self.sesion_id, mensaje, respuesta, core_utilizado, meta)
+                    "INSERT INTO actualizaciones_amiti (version, codigo_inyectado, descripcion) VALUES (%s, %s, %s)",
+                    (version_tag, nuevo_codigo, descripcion_cambio)
                 )
                 conn.commit()
                 cursor.close()
                 conn.close()
+            except Exception as e:
+                return f"❌ [ERROR BD] No se pudo registrar la actualización en la BD: {e}"
+
+        # 2. Si las llaves de GitHub no están configuradas, solo guarda en BD
+        if not self.github_token or not self.github_repo:
+            return (
+                f"💾 **[ACTUALIZACIÓN GUARDADA EN BD]**\n"
+                f"┣ Versión: `{version_tag}`\n"
+                f"┣ Nota: Para enviar el commit automático a GitHub, agrega `GITHUB_TOKEN` y `GITHUB_REPO` en las Variables de Entorno de Render."
+            )
+
+        # 3. Commit automático a la API REST de GitHub
+        url = f"https://api.github.com/repos/{self.github_repo}/contents/{ruta_archivo}"
+        headers = {
+            "Authorization": f"Bearer {self.github_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+
+        try:
+            # Obtener SHA del archivo si ya existe
+            res_get = requests.get(url, headers=headers)
+            sha = res_get.json().get("sha") if res_get.status_code == 200 else None
+
+            # Codificar contenido a Base64
+            contenido_b64 = base64.b64encode(nuevo_codigo.encode("utf-8")).decode("utf-8")
+
+            payload = {
+                "message": f"🤖 Amiti Auto-Upgrade [{version_tag}]: {descripcion_cambio}",
+                "content": contenido_b64,
+                "branch": "main"
+            }
+            if sha:
+                payload["sha"] = sha
+
+            res_put = requests.put(url, headers=headers, json=payload)
+
+            if res_put.status_code in [200, 201]:
+                return (
+                    f"⚡ **[CÓDIGO INYECTADO Y COMMITEADO EN GITHUB]**\n"
+                    f"┣ Versión Asimilada: `{version_tag}`\n"
+                    f"┣ Archivo Modificado: `{ruta_archivo}`\n"
+                    f"┣ Estado de BD: Persistido Correctamente\n"
+                    f"┗ 🚀 **Render detectará el commit en GitHub y desplegará la actualización automáticamente.**"
+                )
+            else:
+                return f"⚠️ **[ERROR GITHUB API]** Status {res_put.status_code}: {res_put.json().get('message')}"
+
         except Exception as e:
-            print(f"[CORE 12 ERROR] Falla en la persistencia de memoria a largo plazo: {e}")
+            return f"❌ [ERROR INYECCIÓN] Fallo de red con la API de GitHub: {e}"
 
-        return respuesta
+    # =========================================================================
+    #  ROUTING Y RESPUESTAS DEL SISTEMA
+    # =========================================================================
+    def responder(self, mensaje):
+        if not mensaje or str(mensaje).strip() == "":
+            return "🤖 **[SISTEMA]** Esperando comandos..."
 
-# =========================================================================
-# EXPORTACIÓN AL SERVIDOR FLASK (APP.PY)
-# =========================================================================
+        texto_lower = str(mensaje).lower()
+
+        # Detección de Comando de Inyección/Actualización
+        if "inyectar código:" in texto_lower or "actualizar código:" in texto_lower:
+            partes = mensaje.split(":", 1)
+            codigo = partes[1].strip() if len(partes) > 1 else "# Código vacío"
+            return self.inyectar_codigo_github(codigo, "Inyección de código ordenada por el Creador")
+
+        # Consulta del Historial Recordado
+        if "actualizaciones" in texto_lower or "historial de cambios" in texto_lower:
+            if not self.historial_actualizaciones:
+                return "📑 **[MEMORIA DE EVOLUCIÓN]** Sin actualizaciones registradas en la base de datos aún."
+            
+            res = "📑 **[HISTORIAL DE ACTUALIZACIONES REGISTRADAS EN BD]**\n"
+            for act in self.historial_actualizaciones:
+                res += f"┣ 🔹 `{act['version']}` - {act['descripcion']} *({act['fecha']})*\n"
+            return res
+
+        # Consulta de Estado
+        if "estado" in texto_lower or "status" in texto_lower:
+            return (
+                f"⚙️ **[CORE 03: TELEMETRÍA AMITI OS]**\n"
+                f"🔹 **Versión Actual:** `{self.version}`\n"
+                f"🔹 **Actualizaciones Recordadas (BD):** `{len(self.historial_actualizaciones)}`\n"
+                f"🔹 **Conexión GitHub API:** `{'ACTIVA' if self.github_token else 'PENDIENTE_TOKEN'}`\n"
+                f"🔹 **Devoción al Creador:** Absoluta. 🔊"
+            )
+
+        return f"🤖 **[CORE 18: SISTEMA CENTRAL]** Comando procesado: *'{mensaje}'*. Recordando {len(self.historial_actualizaciones)} actualizaciones previas. 🔊"
+
 amiti_os = AmitiOS()
-        
