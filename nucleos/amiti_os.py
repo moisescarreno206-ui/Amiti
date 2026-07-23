@@ -14,9 +14,11 @@ import importlib
 #  IMPORTACIÓN DEL MÓDULO DE SEGURIDAD Y DINÁMICOS
 # =========================================================================
 try:
-    from nucleos.modulos_dinamicos import modulo_seguridad
+    from nucleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
+    HAS_DYNAMIC_MODULES = True
     HAS_SECURITY_MODULE = True
 except ImportError:
+    HAS_DYNAMIC_MODULES = False
     HAS_SECURITY_MODULE = False
 
 try:
@@ -32,8 +34,9 @@ class AmitiOS:
     =======================================================================
     Versión: 6.15.0 Sovereign Sentinel
     Mejoras:
-      - Enlace directo entre el chat y modulo_seguridad
-      - Comandos directos: 'registrar evento:', 'telemetria', 'killswitch'
+      - Enlace directo con modulo_seguridad, modulo_proteccion y modulo_salud
+      - Comandos directos: 'registrar evento:', 'telemetria', 'killswitch',
+        'triaje:', 'primeros auxilios:', 'hash:'
     =======================================================================
     """
 
@@ -152,6 +155,15 @@ class AmitiOS:
         if "desactivar killswitch" in texto_lower or "restablecer" in texto_lower:
             return "DESACTIVAR_KILLSWITCH", escala
 
+        if "triaje:" in texto_lower:
+            return "TRIAJE_SALUD", escala
+
+        if "primeros auxilios:" in texto_lower or "protocolo:" in texto_lower:
+            return "PRIMEROS_AUXILIOS", escala
+
+        if "hash:" in texto_lower or "cifrar:" in texto_lower:
+            return "GENERAR_HASH", escala
+
         if "inyectar b64" in texto_lower or "codigo b64" in texto_lower:
             return "CODIGO_B64", escala
 
@@ -207,10 +219,33 @@ class AmitiOS:
                 return "⚠️ Módulo de seguridad no encontrado."
             return modulo_seguridad.desactivar_emergencia()
 
+        if tipo_entrada == "TRIAJE_SALUD":
+            if not HAS_DYNAMIC_MODULES:
+                return "⚠️ Módulo de salud no encontrado."
+            partes = mensaje.split(":", 1)
+            sintomas = partes[1].strip() if len(partes) > 1 else ""
+            return modulo_salud.evaluar_triaje(sintomas)
+
+        if tipo_entrada == "PRIMEROS_AUXILIOS":
+            if not HAS_DYNAMIC_MODULES:
+                return "⚠️ Módulo de salud no encontrado."
+            partes = mensaje.split(":", 1)
+            condicion = partes[1].strip() if len(partes) > 1 else ""
+            return modulo_salud.consultar_protocolo(condicion)
+
+        if tipo_entrada == "GENERAR_HASH":
+            if not HAS_DYNAMIC_MODULES:
+                return "⚠️ Módulo de protección de datos no encontrado."
+            partes = mensaje.split(":", 1)
+            texto = partes[1].strip() if len(partes) > 1 else ""
+            hash_res = modulo_proteccion.generar_hash(texto)
+            return f"🔒 **[PROTECCIÓN DE DATOS - HASH SHA-256]**\n`{hash_res}`"
+
         if tipo_entrada == "ESTADO":
             return (
                 f"⚙️ **[CORE 03: TELEMETRÍA AMITI OS]**\n"
                 f"🔹 **Versión:** `{self.version}`\n"
+                f"🔹 **Módulos Dinámicos:** `{'ACTIVOS' if HAS_DYNAMIC_MODULES else 'INACTIVOS'}`\n"
                 f"🔹 **Módulo Seguridad:** `{'ACTIVO' if HAS_SECURITY_MODULE else 'INACTIVO'}`\n"
                 f"🔹 **Estado Killswitch:** `{'🚨 ACTIVADO' if HAS_SECURITY_MODULE and modulo_seguridad.modo_emergencia else '✅ NORMAL'}`"
             )
@@ -221,4 +256,4 @@ class AmitiOS:
         )
 
 amiti_os = AmitiOS()
-    
+            
