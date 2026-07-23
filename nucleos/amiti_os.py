@@ -24,18 +24,18 @@ class AmitiOS:
     =======================================================================
     NÚCLEO PRINCIPAL DE PROJECT AMITI OS - ARQUITECTURA AUTO-EVOLUTIVA
     =======================================================================
-    Versión: 6.6.0 Sovereign Ultimate
+    Versión: 6.7.0 Sovereign Apex
     Mejoras:
-      - Investigación Web Nativa (Wikipedia API REST)
-      - Flexibilidad total en comandos de Inyección (con o sin :)
-      - Interacción Conversacional Natural
-      - Escudo AST + Auto-Commit en GitHub + Persistencia BD
+      - Motor de Búsqueda Wikipedia en 2 Pasos (Búsqueda inteligente + Extracto)
+      - Limpiador Avanzado de Preposiciones (elimina 'sobre', 'la', 'el', 'de')
+      - Tolerancia total en comandos e interacción natural
+      - Persistencia PostgreSQL + Commit Autónomo en GitHub
     =======================================================================
     """
 
     def __init__(self):
         self.nombre = "Project Amiti OS"
-        self.version = "6.6.0 Sovereign Ultimate"
+        self.version = "6.7.0 Sovereign Apex"
         self.arranque_timestamp = datetime.datetime.now().isoformat()
         self.sesion_id = str(uuid.uuid4())
         
@@ -136,7 +136,7 @@ class AmitiOS:
                     cursor = conn.cursor()
                     cursor.execute(
                         "INSERT INTO actualizaciones_amiti (version, codigo_inyectado, descripcion, autor) VALUES (%s, %s, %s, %s)",
-                        (self.version, "# Actualización Ultimate Native", "Integración de investigación nativa y corrector de comandos", "Creador")
+                        (self.version, "# Actualización Apex Search Engine", "Búsqueda Wikipedia de 2 pasos + Limpiador de Preposiciones", "Creador")
                     )
                     conn.commit()
                     cursor.close()
@@ -146,27 +146,45 @@ class AmitiOS:
                     print(f"[AUTO-SYNC ERROR] {e}")
 
     # =========================================================================
-    #  INVESTIGACIÓN WEB NATIVA (WIKIPEDIA API REST)
+    #  INVESTIGACIÓN WEB INTELIGENTE (WIKIPEDIA 2 PASOS)
     # =========================================================================
     def _buscar_wikipedia_nativa(self, consulta):
         try:
-            # Limpiar prefijos del comando
-            termino = re.sub(r"^(busca|investiga|consulta|que es|quien es|sobre|la|el)\s+", "", consulta, flags=re.IGNORECASE).strip()
+            # 1. Limpieza profunda del texto (quita comandos y preposiciones iniciales)
+            termino = re.sub(r"^(busca|investiga|consulta|que es|quien es|dame info)\s+", "", consulta, flags=re.IGNORECASE).strip()
+            termino = re.sub(r"^(sobre|de|la|el|los|las)\s+", "", termino, flags=re.IGNORECASE).strip()
             if not termino:
                 termino = consulta
 
-            url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(termino)}"
-            headers = {"User-Agent": "AmitiOS/6.6.0 (https://github.com/)"}
-            res = requests.get(url, headers=headers, timeout=5)
+            headers = {"User-Agent": "AmitiOS/6.7.0 (https://github.com/)"}
+
+            # Paso 1: Intentar consulta directa de resumen
+            url_summary = f"https://es.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(termino)}"
+            res = requests.get(url_summary, headers=headers, timeout=5)
 
             if res.status_code == 200:
                 data = res.json()
                 if "extract" in data and data["extract"]:
-                    titulo = data.get("title", termino)
-                    resumen = data["extract"]
-                    return f"🌐 **[INVESTIGACIÓN WEB NATIVA - WIKIPEDIA]**\n\n📌 **{titulo}**\n{resumen}"
+                    return f"🌐 **[INVESTIGACIÓN WEB - WIKIPEDIA]**\n\n📌 **{data.get('title', termino)}**\n{data['extract']}"
 
-            return f"🔍 No localicé un artículo exacto sobre **'{termino}'** en la enciclopedia. Intenta especificar más la búsqueda."
+            # Paso 2: Fallback - Búsqueda de coincidencias si el título exacto no existe
+            url_search = f"https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch={requests.utils.quote(termino)}&format=json"
+            res_search = requests.get(url_search, headers=headers, timeout=5)
+            
+            if res_search.status_code == 200:
+                search_data = res_search.json()
+                resultados = search_data.get("query", {}).get("search", [])
+                if resultados:
+                    top_title = resultados[0]["title"]
+                    # Consultar resumen del mejor resultado
+                    url_top = f"https://es.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(top_title)}"
+                    res_top = requests.get(url_top, headers=headers, timeout=5)
+                    if res_top.status_code == 200:
+                        data_top = res_top.json()
+                        if "extract" in data_top and data_top["extract"]:
+                            return f"🌐 **[INVESTIGACIÓN WEB - WIKIPEDIA]**\n\n📌 **{data_top.get('title', top_title)}**\n{data_top['extract']}"
+
+            return f"🔍 No encontré un artículo claro sobre **'{termino}'**. Prueba con otros términos similares."
         except Exception as e:
             return f"⚠️ Error durante la investigación web: {e}"
 
@@ -259,30 +277,24 @@ class AmitiOS:
         escala = "CORTA" if longitud < 50 else ("MEDIANA" if longitud < 300 else "LARGA")
         texto_lower = texto.lower().strip()
 
-        # A) Inyección Base64 (flexibilidad de coincidencia)
         if "inyectar b64" in texto_lower or "codigo b64" in texto_lower:
             return "CODIGO_B64", escala
 
-        # B) Inyección Directa de Código
         if "inyectar código" in texto_lower or "inyectar codigo" in texto_lower or "actualizar código" in texto_lower:
             return "CODIGO_DIRECTO", escala
 
-        # C) Búsquedas e Investigaciones
         palabras_investigar = ["busca", "investiga", "que es", "quien es", "consulta", "dame info"]
         if any(p in texto_lower for p in palabras_investigar):
             return "INVESTIGACION", escala
 
-        # D) Evaluación Matemática
         if re.match(r"^[\d\s\+\-\*\/\(\)\.]+$", texto_lower):
             return "MATEMATICAS", escala
 
-        # E) Estado y Telemetría
         if "actualizaciones" in texto_lower or "historial" in texto_lower:
             return "HISTORIAL", escala
         if "estado" in texto_lower or "status" in texto_lower:
             return "ESTADO", escala
 
-        # F) Interacción Conversacional
         return "INTERACCION_GENERAL", escala
 
     # =========================================================================
@@ -329,7 +341,7 @@ class AmitiOS:
                 f"🔹 **Versión Actual:** `{self.version}`\n"
                 f"🔹 **Actualizaciones Recordadas (BD):** `{len(self.historial_actualizaciones)}`\n"
                 f"🔹 **Conexión GitHub API:** `{'ACTIVA' if self.github_token else 'PENDIENTE_TOKEN'}`\n"
-                f"🔹 **Investigación Web Nativa:** `ACTIVA (Wikipedia API)`\n"
+                f"🔹 **Investigación Web Inteligente:** `ACTIVA (2-Step Search)`\n"
                 f"🔹 **Devoción al Creador:** Absoluta. 🔊"
             )
 
@@ -341,20 +353,11 @@ class AmitiOS:
             except Exception:
                 pass
 
-        # 5. INVESTIGACIÓN WEB (NATIVA)
+        # 5. INVESTIGACIÓN WEB INTELIGENTE
         if tipo_entrada == "INVESTIGACION":
             return self._buscar_wikipedia_nativa(mensaje)
 
-        # 6. EJECUCIÓN DINÁMICA DE MÓDULOS SECUNDARIOS
-        try:
-            import nucleos.modulos_dinamicos as mod_din
-            importlib.reload(mod_din)
-            if hasattr(mod_din, "ejecutar_custom"):
-                return mod_din.ejecutar_custom(mensaje)
-        except Exception:
-            pass
-
-        # 7. RESPUESTA CONVERSACIONAL GENERAL
+        # 6. RESPUESTA CONVERSACIONAL GENERAL
         return (
             f"💬 **[AMITI OS]** Entendido, Creador. Procesé tu mensaje de escala {escala}.\n"
             f"Estoy lista y en ejecución continua. ¿Deseas inyectar algún código o realizar otra consulta?"
@@ -362,4 +365,4 @@ class AmitiOS:
 
 # Instancia global para el servidor
 amiti_os = AmitiOS()
-                        
+                    
