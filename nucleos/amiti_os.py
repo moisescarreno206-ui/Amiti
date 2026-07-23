@@ -24,30 +24,26 @@ class AmitiOS:
     =======================================================================
     NÚCLEO PRINCIPAL DE PROJECT AMITI OS - ARQUITECTURA AUTO-EVOLUTIVA
     =======================================================================
-    Versión: 6.5.0 Sovereign Universal Engine
-    Capacidades: 
-      - Clasificación inteligente de entradas (corta/mediana/larga)
-      - Decodificación Base64 para inyección de códigos extensos
-      - Inyección directa de código con Escudo AST
-      - Auto-Commit a GitHub y Persistencia en PostgreSQL (Supabase/Neon)
-      - Ejecución Dinámica de Módulos (Investigación Web, Matemáticas)
+    Versión: 6.6.0 Sovereign Ultimate
+    Mejoras:
+      - Investigación Web Nativa (Wikipedia API REST)
+      - Flexibilidad total en comandos de Inyección (con o sin :)
+      - Interacción Conversacional Natural
+      - Escudo AST + Auto-Commit en GitHub + Persistencia BD
     =======================================================================
     """
 
     def __init__(self):
-        # 1. Identidad y Estado
         self.nombre = "Project Amiti OS"
-        self.version = "6.5.0 Sovereign Universal"
+        self.version = "6.6.0 Sovereign Ultimate"
         self.arranque_timestamp = datetime.datetime.now().isoformat()
         self.sesion_id = str(uuid.uuid4())
         
-        # 2. Credenciales y Entorno
         self.database_url = os.environ.get("DATABASE_URL")
         self.neon_database_url = os.environ.get("NEON_DATABASE_URL")
         self.github_token = os.environ.get("GITHUB_TOKEN", "").strip()
         self.github_repo = os.environ.get("GITHUB_REPO", "").strip()
         
-        # 3. Cargar Memoria Histórica
         self.historial_actualizaciones = []
         self._inicializar_base_datos()
         self._cargar_historial_actualizaciones()
@@ -140,7 +136,7 @@ class AmitiOS:
                     cursor = conn.cursor()
                     cursor.execute(
                         "INSERT INTO actualizaciones_amiti (version, codigo_inyectado, descripcion, autor) VALUES (%s, %s, %s, %s)",
-                        (self.version, "# Actualización Sovereign Universal", "Evolución completa con ejecutor dinámico, Base64 y procesador multiformato", "Creador")
+                        (self.version, "# Actualización Ultimate Native", "Integración de investigación nativa y corrector de comandos", "Creador")
                     )
                     conn.commit()
                     cursor.close()
@@ -150,10 +146,34 @@ class AmitiOS:
                     print(f"[AUTO-SYNC ERROR] {e}")
 
     # =========================================================================
+    #  INVESTIGACIÓN WEB NATIVA (WIKIPEDIA API REST)
+    # =========================================================================
+    def _buscar_wikipedia_nativa(self, consulta):
+        try:
+            # Limpiar prefijos del comando
+            termino = re.sub(r"^(busca|investiga|consulta|que es|quien es|sobre|la|el)\s+", "", consulta, flags=re.IGNORECASE).strip()
+            if not termino:
+                termino = consulta
+
+            url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(termino)}"
+            headers = {"User-Agent": "AmitiOS/6.6.0 (https://github.com/)"}
+            res = requests.get(url, headers=headers, timeout=5)
+
+            if res.status_code == 200:
+                data = res.json()
+                if "extract" in data and data["extract"]:
+                    titulo = data.get("title", termino)
+                    resumen = data["extract"]
+                    return f"🌐 **[INVESTIGACIÓN WEB NATIVA - WIKIPEDIA]**\n\n📌 **{titulo}**\n{resumen}"
+
+            return f"🔍 No localicé un artículo exacto sobre **'{termino}'** en la enciclopedia. Intenta especificar más la búsqueda."
+        except Exception as e:
+            return f"⚠️ Error durante la investigación web: {e}"
+
+    # =========================================================================
     #  INYECCIÓN AUTÓNOMA DE CÓDIGO Y SINCRONIZACIÓN GITHUB
     # =========================================================================
     def inyectar_codigo_github(self, nuevo_codigo, descripcion_cambio="Inyección de código ordenada por el Creador", ruta_archivo="nucleos/modulos_dinamicos.py"):
-        # 1. Escudo AST para validar sintaxis en Python
         try:
             ast.parse(nuevo_codigo)
         except SyntaxError as e:
@@ -161,14 +181,13 @@ class AmitiOS:
                 f"⚠️ **[ESCUDO AST: ERROR DE SINTAXIS]**\n"
                 f"┣ Línea de error: `{e.lineno}`\n"
                 f"┣ Detalle: `{e.msg}`\n"
-                f"┗ **Inyección cancelada. Revisa la sintaxis o usa 'inyectar b64:'.**"
+                f"┗ **Inyección cancelada. Revisa el código.**"
             )
 
         token = (os.getenv("GITHUB_TOKEN") or self.github_token or "").strip()
         repo = (os.getenv("GITHUB_REPO") or self.github_repo or "").strip()
         version_tag = f"v6.{len(self.historial_actualizaciones) + 1}.0"
 
-        # 2. Registrar en Base de Datos
         conn, _ = self._obtener_conexion_db()
         if conn:
             try:
@@ -186,7 +205,6 @@ class AmitiOS:
         if not token or not repo:
             return f"❌ **[ERROR]**: Faltan las variables `GITHUB_TOKEN` o `GITHUB_REPO`."
 
-        # 3. Anexar y Commitizar en GitHub
         url = f"https://api.github.com/repos/{repo}/contents/{ruta_archivo}"
         headers = {
             "Authorization": f"Bearer {token}",
@@ -208,11 +226,7 @@ class AmitiOS:
                 except Exception:
                     contenido_previo = ""
 
-            if contenido_previo.strip():
-                codigo_final = f"{contenido_previo.strip()}\n\n# --- Inyección {version_tag} ---\n{nuevo_codigo}"
-            else:
-                codigo_final = nuevo_codigo
-
+            codigo_final = f"{contenido_previo.strip()}\n\n# --- Inyección {version_tag} ---\n{nuevo_codigo}" if contenido_previo.strip() else nuevo_codigo
             contenido_b64 = base64.b64encode(codigo_final.encode("utf-8")).decode("utf-8")
 
             payload = {
@@ -241,21 +255,20 @@ class AmitiOS:
     #  CLASIFICADOR INTELIGENTE DE ENTRADAS
     # =========================================================================
     def clasificar_entrada(self, texto):
-        """Analiza el mensaje para determinar intención y dimensión del texto."""
         longitud = len(texto)
         escala = "CORTA" if longitud < 50 else ("MEDIANA" if longitud < 300 else "LARGA")
         texto_lower = texto.lower().strip()
 
-        # A) Inyección por Base64
-        if "inyectar b64:" in texto_lower or "codigo b64:" in texto_lower:
+        # A) Inyección Base64 (flexibilidad de coincidencia)
+        if "inyectar b64" in texto_lower or "codigo b64" in texto_lower:
             return "CODIGO_B64", escala
 
         # B) Inyección Directa de Código
-        if "inyectar código:" in texto_lower or "actualizar código:" in texto_lower or "inyectar codigo:" in texto_lower:
+        if "inyectar código" in texto_lower or "inyectar codigo" in texto_lower or "actualizar código" in texto_lower:
             return "CODIGO_DIRECTO", escala
 
         # C) Búsquedas e Investigaciones
-        palabras_investigar = ["busca", "investiga", "que es", "quien es", "consulta", "dame info", "search"]
+        palabras_investigar = ["busca", "investiga", "que es", "quien es", "consulta", "dame info"]
         if any(p in texto_lower for p in palabras_investigar):
             return "INVESTIGACION", escala
 
@@ -269,11 +282,11 @@ class AmitiOS:
         if "estado" in texto_lower or "status" in texto_lower:
             return "ESTADO", escala
 
-        # F) Interacción Conversacional General
+        # F) Interacción Conversacional
         return "INTERACCION_GENERAL", escala
 
     # =========================================================================
-    #  MOTOR PRINCIPAL DE RESPUESTA Y EJECUCIÓN
+    #  MOTOR PRINCIPAL DE RESPUESTA
     # =========================================================================
     def responder(self, mensaje):
         if not mensaje or str(mensaje).strip() == "":
@@ -281,11 +294,13 @@ class AmitiOS:
 
         tipo_entrada, escala = self.clasificar_entrada(mensaje)
 
-        # 1. INYECCIÓN BASE64 (Soporta archivos/códigos masivos)
+        # 1. INYECCIÓN BASE64
         if tipo_entrada == "CODIGO_B64":
             try:
-                partes = mensaje.split(":", 1)
+                partes = mensaje.split(":", 1) if ":" in mensaje else mensaje.split("b64", 1)
                 b64_str = partes[1].strip() if len(partes) > 1 else ""
+                if not b64_str:
+                    return "⚠️ **[AVISO]**: Debes incluir la cadena Base64 después del comando (ej: `inyectar b64: <cadena>`)."
                 codigo_decodificado = base64.b64decode(b64_str).decode("utf-8")
                 return self.inyectar_codigo_github(codigo_decodificado, f"Inyección Base64 [{escala}]")
             except Exception as e:
@@ -295,6 +310,8 @@ class AmitiOS:
         if tipo_entrada == "CODIGO_DIRECTO":
             partes = mensaje.split(":", 1)
             codigo = partes[1].strip() if len(partes) > 1 else ""
+            if not codigo:
+                return "⚠️ **[AVISO]**: Debes escribir el código Python a inyectar (ej: `inyectar código: def mi_func(): pass`)."
             return self.inyectar_codigo_github(codigo, f"Inyección Directa [{escala}]")
 
         # 3. HISTORIAL Y ESTADO
@@ -312,7 +329,7 @@ class AmitiOS:
                 f"🔹 **Versión Actual:** `{self.version}`\n"
                 f"🔹 **Actualizaciones Recordadas (BD):** `{len(self.historial_actualizaciones)}`\n"
                 f"🔹 **Conexión GitHub API:** `{'ACTIVA' if self.github_token else 'PENDIENTE_TOKEN'}`\n"
-                f"🔹 **Procesador Universal:** Multiformato (Corto/Mediano/Largo/Base64)\n"
+                f"🔹 **Investigación Web Nativa:** `ACTIVA (Wikipedia API)`\n"
                 f"🔹 **Devoción al Creador:** Absoluta. 🔊"
             )
 
@@ -324,29 +341,25 @@ class AmitiOS:
             except Exception:
                 pass
 
-        # 5. EJECUCIÓN DINÁMICA DE MÓDULOS INYECTADOS
+        # 5. INVESTIGACIÓN WEB (NATIVA)
+        if tipo_entrada == "INVESTIGACION":
+            return self._buscar_wikipedia_nativa(mensaje)
+
+        # 6. EJECUCIÓN DINÁMICA DE MÓDULOS SECUNDARIOS
         try:
             import nucleos.modulos_dinamicos as mod_din
             importlib.reload(mod_din)
+            if hasattr(mod_din, "ejecutar_custom"):
+                return mod_din.ejecutar_custom(mensaje)
+        except Exception:
+            pass
 
-            if tipo_entrada == "INVESTIGACION":
-                tema = re.sub(r"\b(busca|investiga|sobre|la|el|los|las|que es|quien es|consulta|por favor)\b", "", mensaje, flags=re.IGNORECASE).strip()
-                if hasattr(mod_din, "investigar_web_amiti"):
-                    return mod_din.investigar_web_amiti(tema or mensaje)
-                elif hasattr(mod_din, "modulo_investigador_web"):
-                    return mod_din.modulo_investigador_web(mensaje)
-
-        except Exception as e:
-            print(f"[DYNAMIC EXECUTION ERROR] {e}")
-
-        # 6. MENSÁJES Y TEXTOS DE INTERACCIÓN GENERAL
+        # 7. RESPUESTA CONVERSACIONAL GENERAL
         return (
-            f"🤖 **[CORE 18: SISTEMA CENTRAL]**\n"
-            f"Comando procesado [{escala} - {len(mensaje)} caracteres]:\n"
-            f"💬 *\"{mensaje}\"*\n"
-            f"🔊 *Recordando {len(self.historial_actualizaciones)} actualizaciones previas.*"
+            f"💬 **[AMITI OS]** Entendido, Creador. Procesé tu mensaje de escala {escala}.\n"
+            f"Estoy lista y en ejecución continua. ¿Deseas inyectar algún código o realizar otra consulta?"
         )
 
 # Instancia global para el servidor
 amiti_os = AmitiOS()
-                    
+                        
