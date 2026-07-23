@@ -1,4 +1,5 @@
 import ast
+import hashlib
 import datetime
 
 def validar_codigo_python(codigo):
@@ -27,13 +28,8 @@ def test_nucleo():
 def funcion_b64():
     return "Base64 funcionando correctamente"
 
-# --- Inyección v6.14.0 (Módulo de Rastreo y Seguridad) ---
+# --- Inyección v6.14.0 (Módulo de Telemetría y Seguridad) ---
 class TelemetriaYEmergencia:
-    """
-    =======================================================================
-    MÓDULO DE RASTREO Y SEGURIDAD - AMITI OS
-    =======================================================================
-    """
     def __init__(self):
         self.modo_emergencia = False
         self.motivo_bloqueo = ""
@@ -67,6 +63,39 @@ class TelemetriaYEmergencia:
             reporte += f"┣ `[{log['timestamp']}]` **[{log['nivel']}]**: {log['mensaje']}\n"
         return reporte
 
-# Instancia global del módulo de seguridad
-modulo_seguridad = TelemetriaYEmergencia()
+# --- Inyección v6.15.0 (Cifrado y Salud) ---
+class ProteccionDatos:
+    """Módulo de Hash e Integridad de Datos Criptográfica"""
+    def generar_hash(self, texto):
+        return hashlib.sha256(texto.encode('utf-8')).hexdigest()
 
+class SaludYPrimerosAuxilios:
+    """Módulo de Triaje Médico y Guía de Emergencia"""
+    def __init__(self):
+        self.protocolos = {
+            "quemadura": "1. Enfriar con agua corriente (no helada) por 10-15 min. 2. No reventar ampollas. 3. Cubrir con gasa limpia.",
+            "corte": "1. Hacer presión firme con compresa o paño limpio. 2. Lavar con agua y jabón. 3. Elevar la zona afectada.",
+            "asfixia": "1. Verificar si la persona puede hablar o toser. 2. Aplicar Maniobra de Heimlich si la vía aérea está obstruida.",
+            "golpe": "1. Aplicar frío local intermitente. 2. Monitorear si hay mareos, náuseas o pérdida de conciencia."
+        }
+
+    def evaluar_triaje(self, sintomas):
+        sintomas_l = sintomas.lower()
+        if any(p in sintomas_l for p in ["dolor de pecho", "falta de aire", "inconsciente", "hemorragia"]):
+            return "🚨 **[TRIAJE CRÍTICO - ALERTA ROJA]** Síntomas graves detectados. Requiere atención médica inmediata."
+        elif any(p in sintomas_l for p in ["fiebre alta", "corte profundo", "quemadura", "fractura"]):
+            return "⚠️ **[TRIAJE URGENTE - ALERTA AMARILLA]** Requiere atención médica prioritaria o aplicación inmediata de primeros auxilios."
+        else:
+            return "🟢 **[TRIAJE LEVE - ALERTA VERDE]** Sintomatología menor. Mantener observación y reposo."
+
+    def consultar_protocolo(self, condicion):
+        condicion_l = condicion.lower()
+        for clave, guia in self.protocolos.items():
+            if clave in condicion_l:
+                return f"🩺 **[GUÍA DE PRIMEROS AUXILIOS: {clave.upper()}]**\n{guia}"
+        return "🩺 **[CONSULTA MÉDICA]** Para esa sintomatología específica, se recomienda evaluación médica presencial."
+
+# Instancias globales
+modulo_seguridad = TelemetriaYEmergencia()
+modulo_proteccion = ProteccionDatos()
+modulo_salud = SaludYPrimerosAuxilios()
