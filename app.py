@@ -59,7 +59,17 @@ try:
 except Exception as e_ext:
     extension_engine = None
 
-
+    # 🔌 INTEGRACIÓN DEL MOTOR DE BIBLIOTECA VIRTUAL
+try:
+    try:
+        from nucleos.amiti_biblioteca import AmitiBibliotecaEngine
+    except ModuleNotFoundError:
+        from núcleos.amiti_biblioteca import AmitiBibliotecaEngine
+        
+    biblioteca_engine = AmitiBibliotecaEngine()
+except Exception as e_bib:
+    biblioteca_engine = None
+    
 # 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO
 def bucle_automatizacion_amiti():
     global telemetria_sistema
@@ -377,16 +387,24 @@ def chat():
 
     historial_corto_plazo.append({"creador": texto_usuario, "timestamp": time.time()})
     
-    try:
+        try:
         texto_lower = texto_usuario.lower()
         palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
+        palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería"]
         
-        if extension_engine and any(kw in texto_lower for kw in palabras_algoritmo):
+        # 📚 1. PRIORIDAD: BÚSQUEDA EN SERVIDOR BIBLIOTECA
+        if biblioteca_engine and any(kw in texto_lower for kw in palabras_biblioteca):
+            respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
+
+        # ⚡ 2. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
+        elif extension_engine and any(kw in texto_lower for kw in palabras_algoritmo):
             if "aprende" in texto_lower or "guarda" in texto_lower:
                 extension_engine.tarea_1_ingresar_conocimiento("Chat", texto_usuario)
                 respuesta = "🧠 **[AMITI EXTENSIÓN]** Nuevo conocimiento registrado e indexado con éxito."
             else:
                 respuesta = extension_engine.generar_algoritmo(texto_usuario)
+        
+        # ⚙️ 3. DEFAULT: PROCESAMIENTO GENERAL
         else:
             respuesta = amiti_system.procesar(texto_usuario)
 
