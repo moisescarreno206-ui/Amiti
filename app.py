@@ -23,7 +23,8 @@ telemetria_sistema = {
     "comandos_procesados": 0,
     "carga_nucleo_simulada": "0%",
     "alertas_bloqueadas": 0,
-    "optimizacion_memoria": "Estable"
+    "optimizacion_memoria": "Estable",
+    "estado_biblioteca_autonoma": "En espera"
 }
 
 # 🧠 IMPORTACIÓN PROTEGIDA CON SOPORTE DE RUTA Y CARPETAS CON TILDE
@@ -59,7 +60,7 @@ try:
 except Exception as e_ext:
     extension_engine = None
 
-    # 🔌 INTEGRACIÓN DEL MOTOR DE BIBLIOTECA VIRTUAL
+# 🔌 INTEGRACIÓN DEL MOTOR DE BIBLIOTECA VIRTUAL
 try:
     try:
         from nucleos.amiti_biblioteca import AmitiBibliotecaEngine
@@ -158,7 +159,6 @@ def index():
         .grid-telemetria { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; }
         .stat-val { color: #fff; font-weight: bold; }
         
-        /* REACTOR NÚCLEO MEJORADO */
         #circle-container { 
             position: relative; 
             width: 100px; 
@@ -389,7 +389,7 @@ def chat():
 
     historial_corto_plazo.append({"creador": texto_usuario, "timestamp": time.time()})
     
-            try:
+    try:
         texto_lower = texto_usuario.lower()
         palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
         palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería"]
@@ -423,4 +423,4 @@ def chat():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-            
+    
