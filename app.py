@@ -42,7 +42,7 @@ except Exception as e:
     telemetria_sistema["status_db"] = "ERROR CRÍTICO"
     
     class FallbackAmitiOS:
-        def obtener_progreso(self): return 0
+        def obtener_progreso(self): return 47
         def validar_creador(self, llave): return True
         def procesar(self, cmd): return "SISTEMA ACTIVO EN MODO DIAGNÓSTICO."
             
@@ -75,16 +75,11 @@ def bucle_automatizacion_amiti():
             else:
                 telemetria_sistema["optimizacion_memoria"] = "Óptima (Estructura Limpia)"
                 
-            progreso_actual = 47
-            try:
-                progreso_actual = amiti_system.obtener_progreso()
-            except Exception:
-                pass
-            
+            progreso_actual = 47 + telemetria_sistema["comandos_procesados"]
             if progreso_actual >= 100:
                 telemetria_sistema["carga_nucleo_simulada"] = "100% Autónomo"
             else:
-                telemetria_sistema["carga_nucleo_simulada"] = f"Escaneando Nodos ({progreso_actual}%)"
+                telemetria_sistema["carga_nucleo_simulada"] = f"Escaneando Nodos ({min(progreso_actual, 100)}%)"
                 
             time.sleep(15)
         except Exception:
@@ -105,7 +100,7 @@ def mostrar_pantalla_diagnostico():
         <style>
             body { background-color: #120202; color: #ff4444; font-family: 'Courier New', Courier, monospace; padding: 20px; margin: 0; }
             h1 { border-bottom: 2px solid #ff4444; padding-bottom: 10px; }
-            pre { background: #220505; padding: 15px; border_radius: 5px; border: 1px solid #ff4444; overflow-x: auto; white-space: pre-wrap; }
+            pre { background: #220505; padding: 15px; border-radius: 5px; border: 1px solid #ff4444; overflow-x: auto; white-space: pre-wrap; }
             .info { color: #ffaaaa; margin-top: 15px; }
         </style>
     </head>
@@ -125,11 +120,12 @@ def index():
         return mostrar_pantalla_diagnostico()
     
     try:
-        progreso_actual = amiti_system.obtener_progreso()
+        progreso_base = amiti_system.obtener_progreso()
     except Exception:
-        progreso_actual = 47
+        progreso_base = 47
+        
+    progreso_actual = min(100, max(progreso_base, 47 + telemetria_sistema["comandos_procesados"]))
 
-    # Nota: Usamos r""" (raw string) para evitar conflictos con expresiones regulares de JavaScript
     html_template = r"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -149,10 +145,37 @@ def index():
         #panel-automatizacion { background: #081614; border: 1px dashed #008877; border-radius: 6px; padding: 8px; font-size: 0.73rem; color: #00ccff; }
         .grid-telemetria { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; }
         .stat-val { color: #fff; font-weight: bold; }
-        #circle-container { position: relative; width: 90px; height: 90px; margin: 8px auto; display: flex; justify-content: center; align-items: center; }
-        .spinner { position: absolute; width: 100%; height: 100%; border: 3px solid transparent; border-top: 3px solid #00ffcc; border-right: 3px solid #00ffcc; border-radius: 50%; animation: spin 2s linear infinite; }
+        
+        /* REACTOR NÚCLEO MEJORADO */
+        #circle-container { 
+            position: relative; 
+            width: 100px; 
+            height: 100px; 
+            margin: 10px auto; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            border-radius: 50%;
+            border: 1px dashed rgba(0, 255, 204, 0.3);
+            background: radial-gradient(circle, rgba(0, 255, 204, 0.08) 0%, transparent 70%);
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .spinner { 
+            position: absolute; 
+            top: -2px; left: -2px;
+            width: 100%; 
+            height: 100%; 
+            border: 3px solid transparent; 
+            border-top: 3px solid #00ffcc; 
+            border-right: 3px solid #00ffcc; 
+            border-radius: 50%; 
+            animation: spin 2.5s linear infinite; 
+            box-sizing: content-box;
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #counter { font-size: 0.85rem; font-weight: bold; text-align: center; line-height: 1.1; z-index: 10; }
+        #counter { font-size: 0.8rem; font-weight: bold; text-align: center; line-height: 1.2; z-index: 10; color: #00ffcc; text-shadow: 0 0 8px #00ffcc; }
+        
         #estado-aprendizaje { text-align: center; font-size: 0.78rem; color: #00ccff; text-shadow: 0 0 5px #00ccff; margin-bottom: 8px; min-height: 16px; }
         #chat-box { flex-grow: 1; overflow-y: auto; border: 1px solid #004444; border-radius: 8px; background-color: #030808; padding: 12px; box-shadow: inset 0 0 10px #001111; margin-bottom: 10px; }
         .mensaje { margin-bottom: 12px; line-height: 1.4; font-size: 0.88rem; animation: fadeIn 0.3s ease; word-wrap: break-word; }
@@ -204,7 +227,17 @@ def index():
         </div>
     </div>
     <script>
-        let bloqueado = true;
+        let bloqueado = false;
+
+        function formatearTexto(texto) {
+            if (!texto) return '';
+            let t = texto;
+            t = t.replace(/```(?:python)?([\s\S]*?)```/g, '<div class="code-block">$1</div>');
+            t = t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            t = t.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            t = t.split('\n').join('<br>');
+            return t;
+        }
 
         function enviarMensaje() {
             const input = document.getElementById('user-input');
@@ -226,7 +259,7 @@ def index():
                         bloqueado = false;
                         document.getElementById('user-input').placeholder = "Modo Creador Activo...";
                         document.getElementById('estado-aprendizaje').innerText = "Sistemas: Control Total Otorgado";
-                        agregarMensaje("Acceso Maestro Concedido. Todos los sub-núcleos (Cálculo, Aprendizaje, Algoritmo) en línea.", 'amiti');
+                        agregarMensaje("Acceso Maestro Concedido. Todos los sub-núcleos en línea.", 'amiti');
                     }
                     solicitarTelemetriaAutonoma();
                 });
@@ -249,11 +282,6 @@ def index():
                     bloqueado = true;
                 }
 
-                if (respuestaTexto.includes("```")) {
-                    respuestaTexto = respuestaTexto.replace(/```python([\s\S]*?)```/g, '<div class="code-block">$1</div>');
-                    respuestaTexto = respuestaTexto.replace(/```([\s\S]*?)```/g, '<div class="code-block">$1</div>');
-                }
-
                 agregarMensaje(respuestaTexto, 'amiti');
                 solicitarTelemetriaAutonoma();
             })
@@ -266,10 +294,7 @@ def index():
             const chatBox = document.getElementById('chat-box');
             const div = document.createElement('div');
             div.className = 'mensaje ' + emisor;
-
-            let textoProcesado = texto.split('\n').join('<br>');
-            div.innerHTML = (emisor === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> 💬 ") + textoProcesado;
-
+            div.innerHTML = (emisor === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> 💬 ") + formatearTexto(texto);
             chatBox.appendChild(div);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -277,11 +302,11 @@ def index():
         function prepararPantallaParaCalculo(msg) {
             let m = msg.toLowerCase();
             if (m.includes("algoritmo") || m.includes("pasos") || m.includes("como hacer") || m.includes("cómo hacer")) {
-                document.getElementById('estado-aprendizaje').innerText = "⚡ Generando Algoritmo Estructurado en Motor Secuencial...";
+                document.getElementById('estado-aprendizaje').innerText = "⚡ Generando Algoritmo Estructurado...";
             } else if (m.includes("+") || m.includes("-") || m.includes("*") || m.includes("/")) {
-                document.getElementById('estado-aprendizaje').innerText = "⚙️ Procesando en Motor de Cálculo Matemático...";
+                document.getElementById('estado-aprendizaje').innerText = "⚙️ Procesando en Motor de Cálculo...";
             } else if (m.includes("aprende") || m.includes("guarda")) {
-                document.getElementById('estado-aprendizaje').innerText = "🧠 Indexando nuevo conocimiento en Clúster...";
+                document.getElementById('estado-aprendizaje').innerText = "🧠 Indexando nuevo conocimiento...";
             }
         }
 
@@ -294,16 +319,13 @@ def index():
                 document.getElementById('val-mantenimiento').innerText = data.ultimo_auto_mantenimiento;
                 document.getElementById('val-cmds').innerText = data.comandos_procesados;
                 document.getElementById('val-carga').innerText = data.carga_nucleo_simulada;
-                if (!bloqueado) {
-                    document.getElementById('estado-aprendizaje').innerText = "Sistemas: Autónomo con persistencia Neon DB";
-                }
             })
             .catch(e => console.log(e));
         }
 
         window.onload = function() {
             solicitarTelemetriaAutonoma();
-            setInterval(solicitarTelemetriaAutonoma, 4000);
+            setInterval(solicitarTelemetriaAutonoma, 3000);
         };
     </script>
 </body>
@@ -324,12 +346,14 @@ def desbloquear():
 @app.route("/api/sistema/telemetria", methods=["GET"])
 def obtener_telemetria():
     try:
-        progreso = amiti_system.obtener_progreso()
+        progreso_base = amiti_system.obtener_progreso()
     except Exception:
-        progreso = 47
+        progreso_base = 47
+    
+    progreso_real = min(100, max(progreso_base, 47 + telemetria_sistema["comandos_procesados"]))
     
     response_data = {
-        "progreso_global": progreso,
+        "progreso_global": progreso_real,
         "status_db": telemetria_sistema["status_db"],
         "ultimo_auto_mantenimiento": telemetria_sistema["ultimo_auto_mantenimiento"],
         "comandos_procesados": telemetria_sistema["comandos_procesados"],
@@ -349,7 +373,7 @@ def chat():
     
     if len(texto_usuario) > 500:
         telemetria_sistema["alertas_bloqueadas"] += 1
-        return jsonify({"respuesta": "🛡️ [Filtro Preventivo]: Comando rechazado por exceder el límite de caracteres seguros."})
+        return jsonify({"respuesta": "🛡️ [Filtro Preventivo]: Comando rechazado por exceder el límite seguro."})
 
     historial_corto_plazo.append({"creador": texto_usuario, "timestamp": time.time()})
     
@@ -375,4 +399,4 @@ def chat():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
+            
