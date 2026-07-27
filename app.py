@@ -70,7 +70,7 @@ try:
 except Exception as e_bib:
     biblioteca_engine = None
     
-## 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y BÚSQUEDA AUTÓNOMA
+# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y BÚSQUEDA AUTÓNOMA
 def bucle_automatizacion_amiti():
     global telemetria_sistema
     while True:
