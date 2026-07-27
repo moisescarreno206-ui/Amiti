@@ -70,7 +70,7 @@ try:
 except Exception as e_bib:
     biblioteca_engine = None
     
-# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO
+# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y BÚSQUEDA AUTÓNOMA
 def bucle_automatizacion_amiti():
     global telemetria_sistema
     while True:
@@ -78,22 +78,26 @@ def bucle_automatizacion_amiti():
             ahora = datetime.now().strftime("%H:%M:%S")
             telemetria_sistema["ultimo_auto_mantenimiento"] = ahora
             
-            tamano_memoria = len(historial_corto_plazo)
-            if tamano_memoria > 10:
+            # 📚 Búsqueda y escaneo autónomo en segundo plano (Simulación de indexación teórica)
+            if 'biblioteca_engine' in globals() and biblioteca_engine:
+                # Aquí el sistema puede precargar o auditar teoría de programación
+                telemetria_sistema["estado_biblioteca_autonoma"] = "Sincronizando teoría exacta y programación"
+            
+            tamanio_memoria = len(historial_corto_plazo)
+            if tamanio_memoria > 10:
                 historial_corto_plazo.pop(0)
                 telemetria_sistema["optimizacion_memoria"] = f"Liberada caché a las {ahora}"
             else:
                 telemetria_sistema["optimizacion_memoria"] = "Óptima (Estructura Limpia)"
-                
+
             progreso_actual = 47 + telemetria_sistema["comandos_procesados"]
             if progreso_actual >= 100:
-                telemetria_sistema["carga_nucleo_simulada"] = "100% Autónomo"
-            else:
-                telemetria_sistema["carga_nucleo_simulada"] = f"Escaneando Nodos ({min(progreso_actual, 100)}%)"
+                progreso_actual = 99
                 
-            time.sleep(15)
-        except Exception:
-            time.sleep(5)
+        except Exception as e:
+            print(f"Error en bucle autónomo: {e}")
+            
+        time.sleep(10)
 
 hilo_mantenimiento = threading.Thread(target=bucle_automatizacion_amiti, daemon=True)
 hilo_mantenimiento.start()
@@ -387,13 +391,17 @@ def chat():
 
     historial_corto_plazo.append({"creador": texto_usuario, "timestamp": time.time()})
     
-        try:
+            try:
         texto_lower = texto_usuario.lower()
         palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
         palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería"]
         
+        # 🔓 0. ACCESO DIRECTO CON LLAVE MAESTRA
+        if texto_lower == "amiti":
+            respuesta = "🔓 **[SISTEMA DESBLOQUEADO]** Llave maestra aceptada. Motores listos para operar."
+
         # 📚 1. PRIORIDAD: BÚSQUEDA EN SERVIDOR BIBLIOTECA
-        if biblioteca_engine and any(kw in texto_lower for kw in palabras_biblioteca):
+        elif biblioteca_engine and any(kw in texto_lower for kw in palabras_biblioteca):
             respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
 
         # ⚡ 2. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
