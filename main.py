@@ -1,4 +1,3 @@
-# app.py
 import os
 import sys
 import time
@@ -60,6 +59,15 @@ except Exception as e:
         def validar_creador(self, llave): return False
         def procesar(self, cmd): return "SISTEMA FUERA DE LÍNEA: Ejecutando modo de contingencia."
     amiti_system = FallbackAmitiOS()
+
+# 🔌 INTEGRACIÓN DE LA EXTENSIÓN AUTÓNOMA (Sin modificar el código base)
+try:
+    from nucleos.amiti_extension import AmitiExtensionEngine
+    extension_engine = AmitiExtensionEngine()
+    print("✔️ [EXTENSIÓN] Motor de extensiones autónomas vinculado.")
+except Exception as e_ext:
+    extension_engine = None
+    print(f"⚠️ [EXTENSIÓN] Cargada en modo pasivo: {e_ext}")
 
 
 # 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO (Background Daemon)
@@ -349,7 +357,28 @@ def chat():
     print(f"--- [INPUT AUTOMÁTICO] Procesando comando #{telemetria_sistema['comandos_procesados']}: '{texto_usuario}' ---")
     
     try:
-        respuesta = amiti_system.procesar(texto_usuario)
+        texto_lower = texto_usuario.lower()
+        
+        # 1. Evaluación por el Motor Autónomo (Extensión)
+        if extension_engine and any(kw in texto_lower for kw in ["crea un algoritmo", "genera codigo", "crea un modulo", "aprende", "guarda"]):
+            if "aprende" in texto_lower or "guarda" in texto_lower:
+                res = extension_engine.tarea_1_ingresar_conocimiento("Chat", texto_usuario)
+                respuesta = "🧠 **[Extensión]** Conocimiento registrado en la base de datos autónoma."
+            else:
+                nombre_mod = f"mod_{abs(hash(texto_usuario)) % 1000}"
+                res = extension_engine.ejecutar_pipeline_completo(
+                    titulo="Solicitud Web",
+                    contenido=texto_usuario,
+                    categoria="desarrollo",
+                    prompt=texto_usuario,
+                    nombre_modulo=nombre_mod
+                )
+                respuesta = f"⚙️ **[Extensión]** Módulo `{nombre_mod}` generado e integrado al repositorio."
+
+        # 2. Evaluación por el Sistema Base Original
+        else:
+            respuesta = amiti_system.procesar(texto_usuario)
+
     except Exception as e:
         print(f"❌ Fallo crítico en ejecución diferida de amiti_os: {str(e)}")
         respuesta = "BLOQUEO"
