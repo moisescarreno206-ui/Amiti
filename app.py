@@ -78,9 +78,7 @@ def bucle_automatizacion_amiti():
             ahora = datetime.now().strftime("%H:%M:%S")
             telemetria_sistema["ultimo_auto_mantenimiento"] = ahora
             
-            # 📚 Búsqueda y escaneo autónomo en segundo plano (Simulación de indexación teórica)
             if 'biblioteca_engine' in globals() and biblioteca_engine:
-                # Aquí el sistema puede precargar o auditar teoría de programación
                 telemetria_sistema["estado_biblioteca_autonoma"] = "Sincronizando teoría exacta y programación"
             
             tamanio_memoria = len(historial_corto_plazo)
