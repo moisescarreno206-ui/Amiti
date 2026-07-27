@@ -70,7 +70,7 @@ try:
 except Exception as e_bib:
     biblioteca_engine = None
     
-# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y BÚSQUEDA AUTÓNOMA
+## 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y BÚSQUEDA AUTÓNOMA
 def bucle_automatizacion_amiti():
     global telemetria_sistema
     while True:
@@ -84,7 +84,7 @@ def bucle_automatizacion_amiti():
             tamanio_memoria = len(historial_corto_plazo)
             if tamanio_memoria > 10:
                 historial_corto_plazo.pop(0)
-                telemetria_sistema["optimizacion_memoria"] = f"Liberada caché a las {ahora}"
+                telemetria_sistema["optimizacion_memoria"] = "Liberada caché de memoria"
             else:
                 telemetria_sistema["optimizacion_memoria"] = "Óptima (Estructura Limpia)"
 
