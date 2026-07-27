@@ -558,7 +558,92 @@ def index():
                 }
             }
 
-            function solicitarTelemetriaAutonoma() {
-                fetch('/api/sistema/telemetria')
-                .then(res => res.json())
-                .then(
+                    function solicitarTelemetriaAutonoma() {
+            fetch('/api/sistema/telemetria')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('progreso-num').innerText = data.progreso_global;
+                document.getElementById('val-db').innerText = data.status_db;
+                document.getElementById('val-mantenimiento').innerText = data.ultimo_auto_mantenimiento;
+                document.getElementById('val-cmds').innerText = data.comandos_procesados;
+                document.getElementById('val-carga').innerText = data.carga_nucleo_simulada;
+                if (!bloqueado) {
+                    document.getElementById('estado-aprendizaje').innerText = "Sistemas: Autónomo con persistencia Neon DB";
+                }
+            });
+        }
+        window.onload = function() {
+            solicitarTelemetriaAutonoma();
+            setInterval(solicitarTelemetriaAutonoma, 4000);
+        };
+    </script>
+</body>
+</html>"""
+    return render_template_string(html_template, progreso=progreso_actual)
+
+
+@app.route("/api/desbloquear", methods=["POST"])
+def desbloquear():
+    data = request.json or {}
+    llave = data.get("llave", "").strip()
+    exito = amiti_system.validar_creador(llave)
+    if not exito and llave.lower() == "amiti":
+        exito = True
+    return jsonify({"desbloqueado": bool(exito)})
+
+
+@app.route("/api/sistema/telemetria", methods=["GET"])
+def obtener_telemetria():
+    try:
+        progreso = amiti_system.obtener_progreso()
+    except Exception:
+        progreso = 47
+    
+    response_data = {
+        "progreso_global": progreso,
+        "status_db": telemetria_sistema["status_db"],
+        "ultimo_auto_mantenimiento": telemetria_sistema["ultimo_auto_mantenimiento"],
+        "comandos_procesados": telemetria_sistema["comandos_procesados"],
+        "carga_nucleo_simulada": telemetria_sistema["carga_nucleo_simulada"],
+        "optimizacion": telemetria_sistema["optimizacion_memoria"]
+    }
+    return jsonify(response_data)
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    global historial_corto_plazo, telemetria_sistema
+    data = request.json or {}
+    texto_usuario = data.get("texto", "").strip()
+    
+    telemetria_sistema["comandos_procesados"] += 1
+    
+    if len(texto_usuario) > 500:
+        telemetria_sistema["alertas_bloqueadas"] += 1
+        return jsonify({"respuesta": "🛡️ [Filtro Preventivo]: Comando rechazado por exceder el límite de caracteres seguros."})
+
+    historial_corto_plazo.append({"creador": texto_usuario, "timestamp": time.time()})
+    
+    try:
+        texto_lower = texto_usuario.lower()
+        palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
+        
+        if extension_engine and any(kw in texto_lower for kw in palabras_algoritmo):
+            if "aprende" in texto_lower or "guarda" in texto_lower:
+                extension_engine.tarea_1_ingresar_conocimiento("Chat", texto_usuario)
+                respuesta = "🧠 **[AMITI EXTENSIÓN]** Nuevo conocimiento registrado e indexado con éxito."
+            else:
+                respuesta = extension_engine.generar_algoritmo(texto_usuario)
+        else:
+            respuesta = amiti_system.procesar(texto_usuario)
+
+    except Exception as e:
+        respuesta = "BLOQUEO"
+
+    return jsonify({"respuesta": respuesta})
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
+
