@@ -75,7 +75,6 @@ except Exception as e_bib:
 # 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y APRENDIZAJE AUTÓNOMO
 def bucle_automatizacion_amiti():
     global telemetria_sistema
-    # Lista de temas que Amiti investigará por su cuenta cuando el creador no esté
     temas_investigacion = ["anatomía", "estadística", "lógica", "programación estructurada", "astronomía", "historia del arte", "física cuántica", "biología molecular", "inteligencia artificial"]
     
     while True:
@@ -83,19 +82,12 @@ def bucle_automatizacion_amiti():
             ahora = datetime.now().strftime("%H:%M:%S")
             telemetria_sistema["ultimo_auto_mantenimiento"] = ahora
             
-            # --- RUTINA DE APRENDIZAJE AUTÓNOMO EN SEGUNDO PLANO ---
             if biblioteca_engine and extension_engine:
                 telemetria_sistema["estado_biblioteca_autonoma"] = "Ciclo de investigación activo"
-                
-                # Hay una probabilidad baja (ej. 1 de cada 6 iteraciones, aprox cada minuto) de que inicie una búsqueda sola
                 if random.randint(1, 6) == 1:
                     tema_elegido = random.choice(temas_investigacion)
                     telemetria_sistema["estado_biblioteca_autonoma"] = f"Investigando: {tema_elegido}..."
-                    
-                    # Ejecuta la búsqueda de forma silenciosa
                     resultado = biblioteca_engine.buscar_en_biblioteca(f"información sobre {tema_elegido}")
-                    
-                    # Si la búsqueda fue exitosa (no devolvió un error), la asimila en su motor de extensión
                     if not resultado.startswith("⚠️"):
                         extension_engine.tarea_1_ingresar_conocimiento(f"Auto-Estudio: {tema_elegido}", resultado)
                         telemetria_sistema["optimizacion_memoria"] = f"Conocimiento asimilado: {tema_elegido}"
@@ -103,9 +95,8 @@ def bucle_automatizacion_amiti():
             tamanio_memoria = len(historial_corto_plazo)
             if tamanio_memoria > 10:
                 historial_corto_plazo.pop(0)
-                if no "Conocimiento" in telemetria_sistema["optimizacion_memoria"]:
-                    telemetria_sistema["optimizacion_memoria"] = "Liberada caché de memoria"
-            elif "Conocimiento" not in telemetria_sistema["optimizacion_memoria"]:
+            
+            if "Conocimiento" not in telemetria_sistema["optimizacion_memoria"]:
                 telemetria_sistema["optimizacion_memoria"] = "Óptima (Estructura Limpia)"
 
             progreso_actual = 47 + telemetria_sistema["comandos_procesados"]
@@ -140,7 +131,6 @@ def mostrar_pantalla_diagnostico():
         <h1>⚠️ FALLO CRÍTICO EN NÚCLEO DE AMITI OS</h1>
         <p class="info">Se ha detectado una excepción durante la fase de importación inicial de los sub-sistemas:</p>
         <pre>{{ traceback_error }}</pre>
-        <p class="info">Por favor, revisa que la carpeta 'nucleos' contenga los archivos 'amiti_os.py' y 'amiti_extension.py'</p>
     </body>
     </html>
     """, traceback_error=traceback_error)
@@ -258,8 +248,6 @@ def index():
         </div>
     </div>
     <script>
-        let bloqueado = false;
-
         function formatearTexto(texto) {
             if (!texto) return '';
             let t = texto;
@@ -287,7 +275,6 @@ def index():
                 .then(res => res.json())
                 .then(data => {
                     if (data.desbloqueado) {
-                        bloqueado = false;
                         document.getElementById('user-input').placeholder = "Modo Creador Activo...";
                         document.getElementById('estado-aprendizaje').innerText = "Sistemas: Control Total Otorgado";
                         agregarMensaje("Acceso Maestro Concedido. Todos los sub-núcleos en línea.", 'amiti');
@@ -405,19 +392,15 @@ def chat():
     try:
         texto_lower = texto_usuario.lower()
         palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
-        
-        # LISTA EXTENDIDA PARA DETECTAR INTENCIONES DE BIBLIOTECA
         palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería", "información", "informacion", "teoría", "teoria", "concepto", "qué es", "que es"]
         
         # 🔓 0. ACCESO DIRECTO CON LLAVE MAESTRA
         if texto_lower == "amiti":
             respuesta = "🔓 **[SISTEMA DESBLOQUEADO]** Llave maestra aceptada. Motores listos para operar."
 
-        # 📚1. PRIORIDAD: BÚSQUEDA EN SERVIDOR BIBLIOTECA + AUTO-APRENDIZAJE
+        # 📚 1. PRIORIDAD ABSOLUTA: BÚSQUEDA EN SERVIDOR BIBLIOTECA + AUTO-APRENDIZAJE
         elif biblioteca_engine and any(kw in texto_lower for kw in palabras_biblioteca):
             respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
-            
-            # --- NUEVA FUNCIÓN: Aprender la información encontrada ---
             if extension_engine and not respuesta.startswith("⚠️"):
                 extension_engine.tarea_1_ingresar_conocimiento("Consulta del Creador", respuesta)
                 respuesta += "\n\n🧠 **[AMITI EXTENSIÓN]** He analizado esta información y la he asimilado en mi base de conocimientos permanente."
@@ -430,13 +413,20 @@ def chat():
             else:
                 respuesta = extension_engine.generar_algoritmo(texto_usuario)
         
-        # ⚙️ 3. DEFAULT: PROCESAMIENTO GENERAL
+        # ⚙️ 3. DEFAULT: PROCESAMIENTO GENERAL (Con filtro anti-bloqueo ciego)
         else:
-            respuesta = amiti_system.procesar(texto_usuario)
+            respuesta_cruda = amiti_system.procesar(texto_usuario)
+            if "bloqueo" in respuesta_cruda.lower() or "restringido" in respuesta_cruda.lower():
+                # Si el núcleo devuelve bloqueo por defecto, lo interceptamos y le damos acceso a la biblioteca de respaldo
+                if biblioteca_engine:
+                    respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
+                else:
+                    respuesta = "🔓 **[MODO LIBRE]** " + respuesta_cruda
+            else:
+                respuesta = respuesta_cruda
 
     except Exception as e:
         import traceback
-        # REPORTE DE ERROR REAL EN PANTALLA EN LUGAR DE "BLOQUEO" CIEGO
         respuesta = f"⚠️ **ERROR DE PROCESAMIENTO DETECTADO:**\n{str(e)}\n\n```python\n{traceback.format_exc()}\n```"
 
     return jsonify({"respuesta": respuesta})
