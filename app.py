@@ -3,6 +3,7 @@ import sys
 import time
 import traceback
 import threading
+import random
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string
 
@@ -71,22 +72,40 @@ try:
 except Exception as e_bib:
     biblioteca_engine = None
     
-# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y BÚSQUEDA AUTÓNOMA
+# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y APRENDIZAJE AUTÓNOMO
 def bucle_automatizacion_amiti():
     global telemetria_sistema
+    # Lista de temas que Amiti investigará por su cuenta cuando el creador no esté
+    temas_investigacion = ["anatomía", "estadística", "lógica", "programación estructurada", "astronomía", "historia del arte", "física cuántica", "biología molecular", "inteligencia artificial"]
+    
     while True:
         try:
             ahora = datetime.now().strftime("%H:%M:%S")
             telemetria_sistema["ultimo_auto_mantenimiento"] = ahora
             
-            if 'biblioteca_engine' in globals() and biblioteca_engine:
-                telemetria_sistema["estado_biblioteca_autonoma"] = "Sincronizando teoría exacta y programación"
+            # --- RUTINA DE APRENDIZAJE AUTÓNOMO EN SEGUNDO PLANO ---
+            if biblioteca_engine and extension_engine:
+                telemetria_sistema["estado_biblioteca_autonoma"] = "Ciclo de investigación activo"
+                
+                # Hay una probabilidad baja (ej. 1 de cada 6 iteraciones, aprox cada minuto) de que inicie una búsqueda sola
+                if random.randint(1, 6) == 1:
+                    tema_elegido = random.choice(temas_investigacion)
+                    telemetria_sistema["estado_biblioteca_autonoma"] = f"Investigando: {tema_elegido}..."
+                    
+                    # Ejecuta la búsqueda de forma silenciosa
+                    resultado = biblioteca_engine.buscar_en_biblioteca(f"información sobre {tema_elegido}")
+                    
+                    # Si la búsqueda fue exitosa (no devolvió un error), la asimila en su motor de extensión
+                    if not resultado.startswith("⚠️"):
+                        extension_engine.tarea_1_ingresar_conocimiento(f"Auto-Estudio: {tema_elegido}", resultado)
+                        telemetria_sistema["optimizacion_memoria"] = f"Conocimiento asimilado: {tema_elegido}"
             
             tamanio_memoria = len(historial_corto_plazo)
             if tamanio_memoria > 10:
                 historial_corto_plazo.pop(0)
-                telemetria_sistema["optimizacion_memoria"] = "Liberada caché de memoria"
-            else:
+                if no "Conocimiento" in telemetria_sistema["optimizacion_memoria"]:
+                    telemetria_sistema["optimizacion_memoria"] = "Liberada caché de memoria"
+            elif "Conocimiento" not in telemetria_sistema["optimizacion_memoria"]:
                 telemetria_sistema["optimizacion_memoria"] = "Óptima (Estructura Limpia)"
 
             progreso_actual = 47 + telemetria_sistema["comandos_procesados"]
@@ -218,7 +237,7 @@ def index():
                 <div class="grid-telemetria">
                     <div>Base DB: <span id="val-db" class="stat-val">Conectando...</span></div>
                     <div>Auto-Mant: <span id="val-mantenimiento" class="stat-val">--:--:--</span></div>
-                    <div>Comandos: <span id="val-cmds" class="stat-val">0</span></div>
+                    <div>Estado Auto: <span id="val-auto" class="stat-val">--</span></div>
                     <div>Carga Core: <span id="val-carga" class="stat-val">0%</span></div>
                 </div>
             </div>
@@ -288,12 +307,6 @@ def index():
             .then(res => res.json())
             .then(data => {
                 let respuestaTexto = data.respuesta || "⚠️ Estructura vacía en canal de datos.";
-
-                if (respuestaTexto === "BLOQUEO" || respuestaTexto === "BLOQUEADO") {
-                    respuestaTexto = "🔒 SISTEMA RESTRINGIDO. Ingresa la llave maestra para interactuar con los motores.";
-                    bloqueado = true;
-                }
-
                 agregarMensaje(respuestaTexto, 'amiti');
                 solicitarTelemetriaAutonoma();
             })
@@ -317,8 +330,8 @@ def index():
                 document.getElementById('estado-aprendizaje').innerText = "⚡ Generando Algoritmo Estructurado...";
             } else if (m.includes("+") || m.includes("-") || m.includes("*") || m.includes("/")) {
                 document.getElementById('estado-aprendizaje').innerText = "⚙️ Procesando en Motor de Cálculo...";
-            } else if (m.includes("aprende") || m.includes("guarda")) {
-                document.getElementById('estado-aprendizaje').innerText = "🧠 Indexando nuevo conocimiento...";
+            } else if (m.includes("aprende") || m.includes("guarda") || m.includes("información") || m.includes("búscame")) {
+                document.getElementById('estado-aprendizaje').innerText = "🧠 Procesando base de conocimientos...";
             }
         }
 
@@ -329,7 +342,7 @@ def index():
                 document.getElementById('progreso-num').innerText = data.progreso_global;
                 document.getElementById('val-db').innerText = data.status_db;
                 document.getElementById('val-mantenimiento').innerText = data.ultimo_auto_mantenimiento;
-                document.getElementById('val-cmds').innerText = data.comandos_procesados;
+                document.getElementById('val-auto').innerText = data.optimizacion;
                 document.getElementById('val-carga').innerText = data.carga_nucleo_simulada;
             })
             .catch(e => console.log(e));
@@ -392,15 +405,22 @@ def chat():
     try:
         texto_lower = texto_usuario.lower()
         palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
-        palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería"]
+        
+        # LISTA EXTENDIDA PARA DETECTAR INTENCIONES DE BIBLIOTECA
+        palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería", "información", "informacion", "teoría", "teoria", "concepto", "qué es", "que es"]
         
         # 🔓 0. ACCESO DIRECTO CON LLAVE MAESTRA
         if texto_lower == "amiti":
             respuesta = "🔓 **[SISTEMA DESBLOQUEADO]** Llave maestra aceptada. Motores listos para operar."
 
-        # 📚 1. PRIORIDAD: BÚSQUEDA EN SERVIDOR BIBLIOTECA
+        # 📚1. PRIORIDAD: BÚSQUEDA EN SERVIDOR BIBLIOTECA + AUTO-APRENDIZAJE
         elif biblioteca_engine and any(kw in texto_lower for kw in palabras_biblioteca):
             respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
+            
+            # --- NUEVA FUNCIÓN: Aprender la información encontrada ---
+            if extension_engine and not respuesta.startswith("⚠️"):
+                extension_engine.tarea_1_ingresar_conocimiento("Consulta del Creador", respuesta)
+                respuesta += "\n\n🧠 **[AMITI EXTENSIÓN]** He analizado esta información y la he asimilado en mi base de conocimientos permanente."
 
         # ⚡ 2. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
         elif extension_engine and any(kw in texto_lower for kw in palabras_algoritmo):
@@ -415,7 +435,9 @@ def chat():
             respuesta = amiti_system.procesar(texto_usuario)
 
     except Exception as e:
-        respuesta = "BLOQUEO"
+        import traceback
+        # REPORTE DE ERROR REAL EN PANTALLA EN LUGAR DE "BLOQUEO" CIEGO
+        respuesta = f"⚠️ **ERROR DE PROCESAMIENTO DETECTADO:**\n{str(e)}\n\n```python\n{traceback.format_exc()}\n```"
 
     return jsonify({"respuesta": respuesta})
 
@@ -423,4 +445,3 @@ def chat():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-    
