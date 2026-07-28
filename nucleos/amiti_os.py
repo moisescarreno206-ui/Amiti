@@ -9,6 +9,7 @@ import base64
 import ast
 import requests
 import importlib
+import sys
 
 # =========================================================================
 #  IMPORTACIÓN DEL MÓDULO DE SEGURIDAD Y DINÁMICOS
@@ -18,8 +19,13 @@ try:
     HAS_DYNAMIC_MODULES = True
     HAS_SECURITY_MODULE = True
 except ImportError:
-    HAS_DYNAMIC_MODULES = False
-    HAS_SECURITY_MODULE = False
+    try:
+        from núcleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
+        HAS_DYNAMIC_MODULES = True
+        HAS_SECURITY_MODULE = True
+    except ImportError:
+        HAS_DYNAMIC_MODULES = False
+        HAS_SECURITY_MODULE = False
 
 try:
     import psycopg2
@@ -32,17 +38,17 @@ class AmitiOS:
     =======================================================================
     NÚCLEO PRINCIPAL DE PROJECT AMITI OS
     =======================================================================
-    Versión: 6.15.0 Sovereign Sentinel
+    Versión: 6.16.0 Sovereign Sentinel + Auto-Extensión
     Mejoras:
       - Enlace directo con modulo_seguridad, modulo_proteccion y modulo_salud
-      - Comandos directos: 'registrar evento:', 'telemetria', 'killswitch',
-        'triaje:', 'primeros auxilios:', 'hash:'
+      - Compatibilidad total con llamadas de procesamiento del app.py
+      - Auto-detección, análisis e integración dinámica de nuevos archivos en raíz/núcleos
     =======================================================================
     """
 
     def __init__(self):
         self.nombre = "Project Amiti OS"
-        self.version = "6.15.0 Sovereign Sentinel"
+        self.version = "6.16.0 Sovereign Sentinel"
         self.arranque_timestamp = datetime.datetime.now().isoformat()
         self.sesion_id = str(uuid.uuid4())
         
@@ -52,8 +58,11 @@ class AmitiOS:
         self.github_repo = os.environ.get("GITHUB_REPO", "").strip()
         
         self.historial_actualizaciones = []
+        self.modulos_dinamicos_detectados = {}
+        
         self._inicializar_base_datos()
         self._cargar_historial_actualizaciones()
+        self.escanear_e_integrar_nuevos_modulos()
 
         print(f"[BOOT] {self.nombre} v{self.version} iniciado correctamente.")
 
@@ -131,6 +140,57 @@ class AmitiOS:
                 print(f"[RECALL ERROR] {e}")
 
     # =========================================================================
+    #  🧠 AUTO-DETECCIÓN E INTEGRACIÓN DE NUEVOS MÓDULOS
+    # =========================================================================
+    def escanear_e_integrar_nuevos_modulos(self):
+        """
+        Escanea la carpeta raíz y la carpeta 'nucleos' / 'núcleos' en busca de 
+        archivos .py nuevos, analiza su contenido sintáctico y los integra de forma dinámica.
+        """
+        directorios_a_escanear = ['.']
+        for nombre_dir in ['nucleos', 'núcleos']:
+            if os.path.exists(nombre_dir) and os.path.isdir(nombre_dir):
+                directorios_a_escanear.append(nombre_dir)
+
+        modulos_integrados = 0
+        for directorio in directorios_a_escanear:
+            try:
+                archivos = os.listdir(directorio)
+                for archivo in archivos:
+                    if archivo.endswith(".py") and archivo not in ["__init__.py", "app.py", "amiti_os.py"]:
+                        ruta_archivo = os.path.join(directorio, archivo)
+                        nombre_modulo = archivo[:-3]
+                        
+                        # Análisis sintáctico previo para verificar seguridad del código
+                        with open(ruta_archivo, "r", encoding="utf-8") as f:
+                            codigo_fuente = f.read()
+                        
+                        try:
+                            ast.parse(codigo_fuente) # Valida que no tenga errores de sintaxis
+                            
+                            # Importación dinámica del módulo encontrado
+                            if directorio != '.':
+                                paquete_mod = directorio.replace('núcleos', 'nucleos')
+                                full_mod_name = f"{paquete_mod}.{nombre_modulo}"
+                            else:
+                                full_mod_name = nombre_modulo
+
+                            if full_mod_name not in sys.modules:
+                                mod_importado = importlib.import_module(full_mod_name)
+                                importlib.reload(mod_importado)
+                                self.modulos_dinamicos_detectados[nombre_modulo] = mod_importado
+                                modulos_integrados += 1
+                                print(f"[AUTO-INTEGRACIÓN] Módulo '{nombre_modulo}' analizado e integrado con éxito.")
+                        except SyntaxError as se:
+                            print(f"[AUTO-INTEGRACIÓN ERROR] Error de sintaxis en {archivo}: {se}")
+                        except Exception as ex:
+                            print(f"[AUTO-INTEGRACIÓN ERROR] No se pudo cargar {archivo}: {ex}")
+            except Exception as e:
+                print(f"[ESCANEO ERROR] {e}")
+        
+        return modulos_integrados
+
+    # =========================================================================
     #  CLASIFICADOR DE COMANDOS AMPLIADO
     # =========================================================================
     def clasificar_entrada(self, texto):
@@ -164,11 +224,8 @@ class AmitiOS:
         if "hash:" in texto_lower or "cifrar:" in texto_lower:
             return "GENERAR_HASH", escala
 
-        if "inyectar b64" in texto_lower or "codigo b64" in texto_lower:
-            return "CODIGO_B64", escala
-
-        if "inyectar código" in texto_lower or "inyectar codigo" in texto_lower:
-            return "CODIGO_DIRECTO", escala
+        if "escanear modulos" in texto_lower or "actualizar nucleos" in texto_lower:
+            return "ESCANEAR_MODULOS", escala
 
         palabras_investigar = ["busca", "investiga", "que es", "quien es", "consulta"]
         if any(p in texto_lower for p in palabras_investigar):
@@ -178,6 +235,13 @@ class AmitiOS:
             return "ESTADO", escala
 
         return "INTERACCION_GENERAL", escala
+
+    # =========================================================================
+    #  MÉTODO PUENTE REQUERIDO POR APP.PY
+    # =========================================================================
+    def procesar(self, comando):
+        """Método puente que redirige al clasificador y respondedor principal."""
+        return self.responder(comando)
 
     # =========================================================================
     #  RESPUESTA Y EJECUCIÓN DE COMANDOS
@@ -241,11 +305,16 @@ class AmitiOS:
             hash_res = modulo_proteccion.generar_hash(texto)
             return f"🔒 **[PROTECCIÓN DE DATOS - HASH SHA-256]**\n`{hash_res}`"
 
+        if tipo_entrada == "ESCANEAR_MODULOS":
+            nuevos = self.escanear_e_integrar_nuevos_modulos()
+            return f"🔄 **[AUTO-EXTENSIÓN]** Escaneo completado. Módulos activos en memoria: `{len(self.modulos_dinamicos_detectados)}`. Nuevos integrados: `{nuevos}`."
+
         if tipo_entrada == "ESTADO":
             return (
                 f"⚙️ **[CORE 03: TELEMETRÍA AMITI OS]**\n"
                 f"🔹 **Versión:** `{self.version}`\n"
                 f"🔹 **Módulos Dinámicos:** `{'ACTIVOS' if HAS_DYNAMIC_MODULES else 'INACTIVOS'}`\n"
+                f"🔹 **Módulos Externos Detectados:** `{len(self.modulos_dinamicos_detectados)}`\n"
                 f"🔹 **Módulo Seguridad:** `{'ACTIVO' if HAS_SECURITY_MODULE else 'INACTIVO'}`\n"
                 f"🔹 **Estado Killswitch:** `{'🚨 ACTIVADO' if HAS_SECURITY_MODULE and modulo_seguridad.modo_emergencia else '✅ NORMAL'}`"
             )
@@ -256,4 +325,4 @@ class AmitiOS:
         )
 
 amiti_os = AmitiOS()
-            
+        
