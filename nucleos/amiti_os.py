@@ -282,6 +282,12 @@ class AmitiOS:
             if resp_dialogo:
                 return resp_dialogo
 
+        # EVALUACIÓN DE CLIMA Y TIEMPO (Módulo amiti_clima_tiempo)
+        if HAS_DYNAMIC_MODULES and 'amiti_clima_tiempo' in self.modulos_dinamicos_detectados:
+            resp_clima = self.modulos_dinamicos_detectados['amiti_clima_tiempo'].modulo_clima.evaluar_comando(mensaje)
+            if resp_clima:
+                return resp_clima
+
         # 2. CLASIFICACIÓN DE COMANDOS ESTÁNDAR
         tipo_entrada, escala = self.clasificar_entrada(mensaje)
 
@@ -358,4 +364,4 @@ class AmitiOS:
         )
 
 amiti_os = AmitiOS()
-        
+            
