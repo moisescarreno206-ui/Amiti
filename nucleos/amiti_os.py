@@ -318,6 +318,11 @@ class AmitiOS:
                 f"🔹 **Módulo Seguridad:** `{'ACTIVO' if HAS_SECURITY_MODULE else 'INACTIVO'}`\n"
                 f"🔹 **Estado Killswitch:** `{'🚨 ACTIVADO' if HAS_SECURITY_MODULE and modulo_seguridad.modo_emergencia else '✅ NORMAL'}`"
             )
+        # --- NUEVA VERIFICACIÓN DEL MÓDULO PSIQUE ---
+        if HAS_DYNAMIC_MODULES and 'amiti_psique' in self.modulos_dinamicos_detectados:
+            respuesta_psique = self.modulos_dinamicos_detectados['amiti_psique'].modulo_psique.evaluar_emocion(mensaje)
+            if respuesta_psique:
+                return respuesta_psique
 
         return (
             f"💬 **[AMITI OS]** Entendido, Creador. Procesé tu mensaje de escala {escala}.\n"
