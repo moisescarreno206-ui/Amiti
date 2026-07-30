@@ -16,6 +16,21 @@ import sys
 # =========================================================================
 try:
     from nucleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
+    from nucleos import amiti_psique
+    HAS_DYNAMIC_MODULES = True
+    HAS_SECURITY_MODULE = True
+except ImportError:
+    try:
+        from núcleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
+        from núcleos import amiti_psique
+        HAS_DYNAMIC_MODULES = True
+        HAS_SECURITY_MODULE = True
+    except ImportError:
+        HAS_DYNAMIC_MODULES = False
+        HAS_SECURITY_MODULE = False
+        
+try:
+    from nucleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
     HAS_DYNAMIC_MODULES = True
     HAS_SECURITY_MODULE = True
 except ImportError:
