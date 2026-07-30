@@ -28,6 +28,19 @@ except ImportError:
     except ImportError:
         HAS_DYNAMIC_MODULES = False
         HAS_SECURITY_MODULE = False
+        
+try:
+    from nucleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
+    HAS_DYNAMIC_MODULES = True
+    HAS_SECURITY_MODULE = True
+except ImportError:
+    try:
+        from núcleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
+        HAS_DYNAMIC_MODULES = True
+        HAS_SECURITY_MODULE = True
+    except ImportError:
+        HAS_DYNAMIC_MODULES = False
+        HAS_SECURITY_MODULE = False
 
 try:
     import psycopg2
@@ -262,6 +275,12 @@ class AmitiOS:
                 respuesta_psique = amiti_psique.modulo_psique.evaluar_emocion(mensaje)
                 if respuesta_psique:
                     return respuesta_psique
+
+        # EVALUACIÓN DE DIÁLOGO NATURAL (Módulo amiti_dialogo)
+        if HAS_DYNAMIC_MODULES and 'amiti_dialogo' in self.modulos_dinamicos_detectados:
+            resp_dialogo = self.modulos_dinamicos_detectados['amiti_dialogo'].modulo_dialogo.evaluar_dialogo(mensaje)
+            if resp_dialogo:
+                return resp_dialogo
 
         # 2. CLASIFICACIÓN DE COMANDOS ESTÁNDAR
         tipo_entrada, escala = self.clasificar_entrada(mensaje)
