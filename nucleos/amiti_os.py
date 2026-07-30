@@ -28,19 +28,6 @@ except ImportError:
     except ImportError:
         HAS_DYNAMIC_MODULES = False
         HAS_SECURITY_MODULE = False
-        
-try:
-    from nucleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
-    HAS_DYNAMIC_MODULES = True
-    HAS_SECURITY_MODULE = True
-except ImportError:
-    try:
-        from núcleos.modulos_dinamicos import modulo_seguridad, modulo_proteccion, modulo_salud
-        HAS_DYNAMIC_MODULES = True
-        HAS_SECURITY_MODULE = True
-    except ImportError:
-        HAS_DYNAMIC_MODULES = False
-        HAS_SECURITY_MODULE = False
 
 try:
     import psycopg2
@@ -190,12 +177,12 @@ class AmitiOS:
                             else:
                                 full_mod_name = nombre_modulo
 
-                            if full_mod_name not in sys.modules:
-                                mod_importado = importlib.import_module(full_mod_name)
-                                importlib.reload(mod_importado)
-                                self.modulos_dinamicos_detectados[nombre_modulo] = mod_importado
-                                modulos_integrados += 1
-                                print(f"[AUTO-INTEGRACIÓN] Módulo '{nombre_modulo}' analizado e integrado con éxito.")
+                            # Carga o recarga el módulo y lo registra en el diccionario interno
+                            mod_importado = importlib.import_module(full_mod_name)
+                            importlib.reload(mod_importado)
+                            self.modulos_dinamicos_detectados[nombre_modulo] = mod_importado
+                            modulos_integrados += 1
+                            print(f"[AUTO-INTEGRACIÓN] Módulo '{nombre_modulo}' analizado e integrado con éxito.")
                         except SyntaxError as se:
                             print(f"[AUTO-INTEGRACIÓN ERROR] Error de sintaxis en {archivo}: {se}")
                         except Exception as ex:
@@ -265,6 +252,18 @@ class AmitiOS:
         if not mensaje or str(mensaje).strip() == "":
             return "🤖 **[SISTEMA]** Esperando comandos..."
 
+        # 1. EVALUACIÓN DE PSIQUE (EMOCIONES / ORIENTACIÓN)
+        if HAS_DYNAMIC_MODULES:
+            if 'amiti_psique' in self.modulos_dinamicos_detectados:
+                respuesta_psique = self.modulos_dinamicos_detectados['amiti_psique'].modulo_psique.evaluar_emocion(mensaje)
+                if respuesta_psique:
+                    return respuesta_psique
+            elif 'amiti_psique' in globals():
+                respuesta_psique = amiti_psique.modulo_psique.evaluar_emocion(mensaje)
+                if respuesta_psique:
+                    return respuesta_psique
+
+        # 2. CLASIFICACIÓN DE COMANDOS ESTÁNDAR
         tipo_entrada, escala = self.clasificar_entrada(mensaje)
 
         if tipo_entrada == "MODO_EMERGENCIA_BLOQUEO":
@@ -333,11 +332,6 @@ class AmitiOS:
                 f"🔹 **Módulo Seguridad:** `{'ACTIVO' if HAS_SECURITY_MODULE else 'INACTIVO'}`\n"
                 f"🔹 **Estado Killswitch:** `{'🚨 ACTIVADO' if HAS_SECURITY_MODULE and modulo_seguridad.modo_emergencia else '✅ NORMAL'}`"
             )
-        # --- NUEVA VERIFICACIÓN DEL MÓDULO PSIQUE ---
-        if HAS_DYNAMIC_MODULES and 'amiti_psique' in self.modulos_dinamicos_detectados:
-            respuesta_psique = self.modulos_dinamicos_detectados['amiti_psique'].modulo_psique.evaluar_emocion(mensaje)
-            if respuesta_psique:
-                return respuesta_psique
 
         return (
             f"💬 **[AMITI OS]** Entendido, Creador. Procesé tu mensaje de escala {escala}.\n"
