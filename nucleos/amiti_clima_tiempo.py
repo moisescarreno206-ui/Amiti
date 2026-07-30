@@ -9,13 +9,13 @@ class ModuloClimaTiempo:
     MÓDULO DE CLIMA Y TIEMPO - PROJECT AMITI OS
     =======================================================================
     Encargado de predecir el clima, temperatura y proveer datos exactos de
-    día, semana, mes y año usando datos en tiempo real.
+    día, semana, mes y año usando datos en tiempo real sincronizados a UTC-4.
     =======================================================================
     """
     def __init__(self):
         self.nombre = "Módulo de Clima y Tiempo Amiti"
-        self.version = "1.0.0"
-        # Coordenadas base configuradas directamente en el núcleo
+        self.version = "1.0.1" # Versión con parche de zona horaria
+        # Coordenadas base
         self.latitud = 8.9242
         self.longitud = -67.4293
         self.timezone = "America/Caracas"
@@ -29,7 +29,10 @@ class ModuloClimaTiempo:
         return texto
         
     def obtener_fecha_hora(self):
-        ahora = datetime.datetime.now()
+        # 🕒 Ajuste de Zona Horaria (Servidor UTC -> Local UTC-4)
+        ahora_utc = datetime.datetime.utcnow()
+        ahora = ahora_utc - datetime.timedelta(hours=4)
+        
         dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
         meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
         
@@ -44,7 +47,6 @@ class ModuloClimaTiempo:
 
     def obtener_clima(self):
         try:
-            # Conexión a la API meteorológica (Sin necesidad de Key)
             url = f"https://api.open-meteo.com/v1/forecast?latitude={self.latitud}&longitude={self.longitud}&current_weather=true&timezone={self.timezone}"
             respuesta = requests.get(url, timeout=5)
             datos = respuesta.json()
@@ -54,7 +56,6 @@ class ModuloClimaTiempo:
                 temp = clima["temperature"]
                 codigo = clima["weathercode"]
                 
-                # Interpretación de la telemetría WMO
                 estado = "Despejado ☀️"
                 if codigo in [1, 2, 3]: estado = "Parcialmente nublado ⛅"
                 elif codigo in [45, 48]: estado = "Con niebla 🌫️"
@@ -71,12 +72,10 @@ class ModuloClimaTiempo:
     def evaluar_comando(self, mensaje):
         txt = self._normalizar(mensaje)
         
-        # Gatillos para fecha, día, hora, año, semanas
         palabras_tiempo = ["que dia es", "fecha", "que hora es", "en que mes", "en que ano", "semana del ano", "que dia es hoy", "dime la fecha"]
         if any(p in txt for p in palabras_tiempo):
             return self.obtener_fecha_hora()
             
-        # Gatillos para clima y temperatura
         palabras_clima = ["clima", "temperatura", "va a llover", "como esta el tiempo", "que clima hace"]
         if any(p in txt for p in palabras_clima):
             return self.obtener_clima()
@@ -84,4 +83,3 @@ class ModuloClimaTiempo:
         return None
 
 modulo_clima = ModuloClimaTiempo()
-          
