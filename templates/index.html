@@ -14,13 +14,8 @@
         }
     }, 10000);
 
-    // 2. Módulo de voz optimizado y seguro para móviles
+    // 2. Módulo de voz por servidor (Streaming directo - 100% compatible con móviles)
     function hablarTextoConNucleo(texto, datosIdentidad) {
-        if (!('speechSynthesis' in window)) return;
-
-        // Detenemos cualquier audio anterior para evitar saturación
-        window.speechSynthesis.cancel();
-
         // Limpieza total de emojis y caracteres markdown que rompen el lector
         let textoPlano = texto
             .replace(/\[.*?\]/g, '')
@@ -31,33 +26,20 @@
 
         if (!textoPlano) return;
 
-        let mensaje = new SpeechSynthesisUtterance(textoPlano);
-        mensaje.lang = 'es-ES';
-        mensaje.rate = 1.0;
-        mensaje.pitch = 1.2; // Tono más agudo para simular voz femenina
+        // Codificamos el texto para la petición web
+        let textoCodificado = encodeURIComponent(textoPlano);
+        
+        // Usamos el sintetizador web de Google Translate como pasarela de audio en español ('es')
+        let urlAudio = `https://translate.google.com/translate_tts?ie=UTF-8&q=${textoCodificado}&tl=es&client=tw-ob`;
 
-        // Función interna para ejecutar la voz de forma segura
-        const ejecutarLectura = () => {
-            let voces = window.speechSynthesis.getVoices();
-            let vozEspanol = voces.find(v => v.lang.startsWith('es'));
-            if (vozEspanol) {
-                mensaje.voice = vozEspanol;
-            }
-            window.speechSynthesis.speak(mensaje);
-        };
-
-        // Si las voces ya están cargadas, las usamos de inmediato
-        let vocesDisponibles = window.speechSynthesis.getVoices();
-        if (vocesDisponibles.length > 0) {
-            ejecutarLectura();
-        } else {
-            window.speechSynthesis.onvoiceschanged = () => {
-                ejecutarLectura();
-            };
-        }
+        // Reproducimos el flujo de audio directamente como un archivo multimedia estándar
+        let audio = new Audio(urlAudio);
+        audio.play().catch(error => {
+            console.log("Reproducción de audio bloqueada por el navegador:", error);
+        });
     }
 
-    // Forzar la carga de voces del sistema operativo móvil
+    // Forzar la carga de voces del sistema operativo móvil (Se mantiene por seguridad estructural)
     if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => {
             window.speechSynthesis.getVoices();
@@ -96,5 +78,4 @@
         })
         .catch(err => console.error("Error en enlace con el núcleo:", err));
     }
-            </script>
-            
+</script>
