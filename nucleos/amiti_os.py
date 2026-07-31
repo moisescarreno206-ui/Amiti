@@ -242,10 +242,6 @@ class AmitiOS:
         if "escanear modulos" in texto_lower or "actualizar nucleos" in texto_lower:
             return "ESCANEAR_MODULOS", escala
 
-        palabras_investigar = ["busca", "investiga", "que es", "quien es", "consulta"]
-        if any(p in texto_lower for p in palabras_investigar):
-            return "INVESTIGACION", escala
-
         if "estado" in texto_lower or "status" in texto_lower:
             return "ESTADO", escala
 
@@ -287,6 +283,12 @@ class AmitiOS:
             resp_clima = self.modulos_dinamicos_detectados['amiti_clima_tiempo'].modulo_clima.evaluar_comando(mensaje)
             if resp_clima:
                 return resp_clima
+
+        # EVALUACIÓN DE INVESTIGACIÓN (Módulo amiti_investigacion)
+        if HAS_DYNAMIC_MODULES and 'amiti_investigacion' in self.modulos_dinamicos_detectados:
+            resp_investigacion = self.modulos_dinamicos_detectados['amiti_investigacion'].modulo_investigacion.evaluar_comando(mensaje)
+            if resp_investigacion:
+                return resp_investigacion
 
         # 2. CLASIFICACIÓN DE COMANDOS ESTÁNDAR
         tipo_entrada, escala = self.clasificar_entrada(mensaje)
@@ -364,4 +366,4 @@ class AmitiOS:
         )
 
 amiti_os = AmitiOS()
-            
+                
