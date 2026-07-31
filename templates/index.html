@@ -13,41 +13,50 @@
         }
     }, 10000);
 
-    // 2. Módulo de voz con desbloqueo y limpieza estricta para móviles
-    function hablarTextoConNucleo(texto, datosIdentidad) {
-        if (!('speechSynthesis' in window)) return;
+    // 2. Modulo de voz con desbloqueo, limpieza estricta y forzado FEMENINO
+function hablarTextoConNucleo(texto, datosIdentidad) {
+    if (!('speechSynthesis' in window)) return;
 
-        window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel();
 
-        // Limpieza total de emojis y caracteres que silencian el sintetizador en Android
-        let textoPlano = texto
-            .replace(/\[.*?\]/g, '')
-            .replace(/[*#`_\[\]()]/g, '')
-            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
-            .replace(/[🔑🌙⚡💾⚙️✨🔹📌💻]/g, '')
-            .trim();
+    // Limpieza total de emojis y caracteres que silencian el sintetizador en Android
+    let textoPlano = texto
+        .replace(/\[.*?\]/g, '')
+        .replace(/[*_~`\\]/g, '')
+        .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+        .replace(/[🗣️🔊✨🔒🤖]/g, '')
+        .trim();
 
-        if (!textoPlano) return;
+    if (!textoPlano) return;
 
-        let mensaje = new SpeechSynthesisUtterance(textoPlano);
-        mensaje.lang = 'es-ES';
-        mensaje.rate = 1.0;
-        mensaje.pitch = datosIdentidad && datosIdentidad.genero === "Femenino" ? 1.2 : 1.0;
+    let mensaje = new SpeechSynthesisUtterance(textoPlano);
+    mensaje.lang = 'es-ES';
+    mensaje.rate = 1.0;
+    
+    // Forzamos el tono (pitch) a 1.2 para asegurar un timbre más agudo y femenino
+    mensaje.pitch = 1.2; 
 
-        // Selección inteligente de voz en español disponible en el teléfono
-        let voces = window.speechSynthesis.getVoices();
-        if (voces.length > 0) {
-            let vozFemenina = voces.find(v => v.lang.startsWith('es') && (v.name.includes('Female') || v.name.includes('Helena') || v.name.includes('Laura') || v.name.includes('Monica') || v.name.includes('Lucia') || v.name.includes('Google')));
-            if (vozFemenina) {
-                mensaje.voice = vozFemenina;
-            } else {
-                let vozEspanol = voces.find(v => v.lang.startsWith('es'));
-                if (vozEspanol) mensaje.voice = vozEspanol;
-            }
+    // Selección inteligente de voz femenina en español
+    let voces = window.speechSynthesis.getVoices();
+    if (voces.length > 0) {
+        // Buscamos nombres típicos de voces femeninas en Android/Windows
+        let vozFemenina = voces.find(v => 
+            v.lang.startsWith('es') && 
+            (v.name.includes('Female') || v.name.includes('Mujer') || v.name.includes('Sabina') || v.name.includes('Paulina') || v.name.includes('Monica') || v.name.includes('Google')) &&
+            !v.name.includes('Male') && !v.name.includes('Hombre')
+        );
+
+        if (vozFemenina) {
+            mensaje.voice = vozFemenina;
+        } else {
+            // Si no encuentra una etiqueta específica, agarra cualquier voz en español
+            let vozEspanol = voces.find(v => v.lang.startsWith('es'));
+            if (vozEspanol) mensaje.voice = vozEspanol;
         }
-
-        window.speechSynthesis.speak(mensaje);
     }
+
+    window.speechSynthesis.speak(mensaje);
+}
 
     // Forzar la carga de voces del sistema operativo móvil
     if ('speechSynthesis' in window) {
