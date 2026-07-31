@@ -14,12 +14,14 @@
     }, 10000);
 
     // 2. Modulo de voz con desbloqueo, limpieza estricta y forzado FEMENINO
+func// 2. Módulo de voz optimizado y seguro para móviles
 function hablarTextoConNucleo(texto, datosIdentidad) {
     if (!('speechSynthesis' in window)) return;
 
+    // Detenemos cualquier audio anterior para evitar saturación
     window.speechSynthesis.cancel();
 
-    // Limpieza total de emojis y caracteres que silencian el sintetizador en Android
+    // Limpieza total de emojis y caracteres markdown que rompen el lector
     let textoPlano = texto
         .replace(/\[.*?\]/g, '')
         .replace(/[*_~`\\]/g, '')
@@ -32,30 +34,29 @@ function hablarTextoConNucleo(texto, datosIdentidad) {
     let mensaje = new SpeechSynthesisUtterance(textoPlano);
     mensaje.lang = 'es-ES';
     mensaje.rate = 1.0;
-    
-    // Forzamos el tono (pitch) a 1.2 para asegurar un timbre más agudo y femenino
-    mensaje.pitch = 1.2; 
+    mensaje.pitch = 1.2; // Tono más agudo para simular voz femenina
 
-    // Selección inteligente de voz femenina en español
-    let voces = window.speechSynthesis.getVoices();
-    if (voces.length > 0) {
-        // Buscamos nombres típicos de voces femeninas en Android/Windows
-        let vozFemenina = voces.find(v => 
-            v.lang.startsWith('es') && 
-            (v.name.includes('Female') || v.name.includes('Mujer') || v.name.includes('Sabina') || v.name.includes('Paulina') || v.name.includes('Monica') || v.name.includes('Google')) &&
-            !v.name.includes('Male') && !v.name.includes('Hombre')
-        );
-
-        if (vozFemenina) {
-            mensaje.voice = vozFemenina;
-        } else {
-            // Si no encuentra una etiqueta específica, agarra cualquier voz en español
-            let vozEspanol = voces.find(v => v.lang.startsWith('es'));
-            if (vozEspanol) mensaje.voice = vozEspanol;
+    // Función interna para ejecutar la voz de forma segura
+    const ejecutarLectura = () => {
+        let voces = window.speechSynthesis.getVoices();
+        // Buscamos cualquier voz en español disponible en el dispositivo
+        let vozEspanol = voces.find(v => v.lang.startsWith('es'));
+        if (vozEspanol) {
+            mensaje.voice = vozEspanol;
         }
-    }
+        window.speechSynthesis.speak(mensaje);
+    };
 
-    window.speechSynthesis.speak(mensaje);
+    // Si las voces ya están cargadas, las usamos de inmediato
+    let vocesDisponibles = window.speechSynthesis.getVoices();
+    if (vocesDisponibles.length > 0) {
+        ejecutarLectura();
+    } else {
+        // Si no han cargado, esperamos a que el navegador dispare el evento
+        window.speechSynthesis.onvoiceschanged = () => {
+            ejecutarLectura();
+        };
+    }
 }
 
     // Forzar la carga de voces del sistema operativo móvil
