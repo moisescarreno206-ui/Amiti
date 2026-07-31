@@ -1,4 +1,5 @@
-<div class="amiti-loader">
+<div class="amiti-leader">
+    <div class="amiti-status-badge">Núcleo Activo</div>
     <span id="contador">0</span> min
 </div>
 
@@ -13,51 +14,48 @@
         }
     }, 10000);
 
-    // 2. Modulo de voz con desbloqueo, limpieza estricta y forzado FEMENINO
-func// 2. Módulo de voz optimizado y seguro para móviles
-function hablarTextoConNucleo(texto, datosIdentidad) {
-    if (!('speechSynthesis' in window)) return;
+    // 2. Módulo de voz optimizado y seguro para móviles
+    function hablarTextoConNucleo(texto, datosIdentidad) {
+        if (!('speechSynthesis' in window)) return;
 
-    // Detenemos cualquier audio anterior para evitar saturación
-    window.speechSynthesis.cancel();
+        // Detenemos cualquier audio anterior para evitar saturación
+        window.speechSynthesis.cancel();
 
-    // Limpieza total de emojis y caracteres markdown que rompen el lector
-    let textoPlano = texto
-        .replace(/\[.*?\]/g, '')
-        .replace(/[*_~`\\]/g, '')
-        .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
-        .replace(/[🗣️🔊✨🔒🤖]/g, '')
-        .trim();
+        // Limpieza total de emojis y caracteres markdown que rompen el lector
+        let textoPlano = texto
+            .replace(/\[.*?\]/g, '')
+            .replace(/[*_~`\\]/g, '')
+            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+            .replace(/[🗣️🔊✨🔒🤖]/g, '')
+            .trim();
 
-    if (!textoPlano) return;
+        if (!textoPlano) return;
 
-    let mensaje = new SpeechSynthesisUtterance(textoPlano);
-    mensaje.lang = 'es-ES';
-    mensaje.rate = 1.0;
-    mensaje.pitch = 1.2; // Tono más agudo para simular voz femenina
+        let mensaje = new SpeechSynthesisUtterance(textoPlano);
+        mensaje.lang = 'es-ES';
+        mensaje.rate = 1.0;
+        mensaje.pitch = 1.2; // Tono más agudo para simular voz femenina
 
-    // Función interna para ejecutar la voz de forma segura
-    const ejecutarLectura = () => {
-        let voces = window.speechSynthesis.getVoices();
-        // Buscamos cualquier voz en español disponible en el dispositivo
-        let vozEspanol = voces.find(v => v.lang.startsWith('es'));
-        if (vozEspanol) {
-            mensaje.voice = vozEspanol;
-        }
-        window.speechSynthesis.speak(mensaje);
-    };
-
-    // Si las voces ya están cargadas, las usamos de inmediato
-    let vocesDisponibles = window.speechSynthesis.getVoices();
-    if (vocesDisponibles.length > 0) {
-        ejecutarLectura();
-    } else {
-        // Si no han cargado, esperamos a que el navegador dispare el evento
-        window.speechSynthesis.onvoiceschanged = () => {
-            ejecutarLectura();
+        // Función interna para ejecutar la voz de forma segura
+        const ejecutarLectura = () => {
+            let voces = window.speechSynthesis.getVoices();
+            let vozEspanol = voces.find(v => v.lang.startsWith('es'));
+            if (vozEspanol) {
+                mensaje.voice = vozEspanol;
+            }
+            window.speechSynthesis.speak(mensaje);
         };
+
+        // Si las voces ya están cargadas, las usamos de inmediato
+        let vocesDisponibles = window.speechSynthesis.getVoices();
+        if (vocesDisponibles.length > 0) {
+            ejecutarLectura();
+        } else {
+            window.speechSynthesis.onvoiceschanged = () => {
+                ejecutarLectura();
+            };
+        }
     }
-}
 
     // Forzar la carga de voces del sistema operativo móvil
     if ('speechSynthesis' in window) {
@@ -71,7 +69,6 @@ function hablarTextoConNucleo(texto, datosIdentidad) {
         if (!textoComando.trim()) return;
 
         // --- TRUCO CRÍTICO PARA MÓVILES ---
-        // Al ejecutarse síncronamente al tocar el botón, desbloquea el canal de audio del navegador
         if ('speechSynthesis' in window) {
             let dummy = new SpeechSynthesisUtterance("");
             window.speechSynthesis.speak(dummy);
@@ -99,4 +96,5 @@ function hablarTextoConNucleo(texto, datosIdentidad) {
         })
         .catch(err => console.error("Error en enlace con el núcleo:", err));
     }
-</script>
+            </script>
+            
