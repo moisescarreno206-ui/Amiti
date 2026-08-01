@@ -3,6 +3,9 @@
     <span id="contador">0</span> min
 </div>
 
+<!-- EL TRUCO: REPRODUCTOR INVISIBLE DE AMITI -->
+<audio id="amiti-reproductor" style="display: none;"></audio>
+
 <script>
     // 1. Temporizador de inteligencia activo
     const startTime = new Date();
@@ -14,7 +17,7 @@
         }
     }, 10000);
 
-    // 2. Módulo de voz por servidor (Streaming directo - 100% compatible con móviles)
+    // 2. Módulo de voz por servidor (Streaming directo)
     function hablarTextoConNucleo(texto, datosIdentidad) {
         // Limpieza total de emojis y caracteres markdown que rompen el lector
         let textoPlano = texto
@@ -32,9 +35,11 @@
         // Usamos el sintetizador web de Google Translate como pasarela de audio en español ('es')
         let urlAudio = `https://translate.google.com/translate_tts?ie=UTF-8&q=${textoCodificado}&tl=es&client=tw-ob`;
 
-        // Reproducimos el flujo de audio directamente como un archivo multimedia estándar
-        let audio = new Audio(urlAudio);
-        audio.play().catch(error => {
+        // Llamamos al reproductor que ya desbloqueamos en el HTML
+        let reproductor = document.getElementById("amiti-reproductor");
+        reproductor.src = urlAudio;
+        
+        reproductor.play().catch(error => {
             console.log("Reproducción de audio bloqueada por el navegador:", error);
         });
     }
@@ -46,14 +51,22 @@
         };
     }
 
-    // 3. Función central con el TRUCO DE DESBLOQUEO MÓVIL
+    // 3. Función central con el TRUCO DE DESBLOQUEO MÓVIL EXTREMO
     function enviarComandoAmiti(textoComando) {
         if (!textoComando.trim()) return;
 
-        // --- TRUCO CRÍTICO PARA MÓVILES ---
+        // --- TRUCO CRÍTICO PARA MÓVILES (Desbloqueo Asíncrono) ---
+        // Desbloqueo del sintetizador nativo (por si acaso)
         if ('speechSynthesis' in window) {
             let dummy = new SpeechSynthesisUtterance("");
             window.speechSynthesis.speak(dummy);
+        }
+        
+        // Desbloqueo del reproductor de audio HTML usando un audio en blanco ultracorto
+        let reproductor = document.getElementById("amiti-reproductor");
+        if (reproductor) {
+            reproductor.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"; 
+            reproductor.play().catch(e => console.log("Silencio inicial bloqueado"));
         }
 
         fetch('/enviar', {
@@ -73,9 +86,10 @@
                 actualizarCirculoProgreso(data.progreso);
             }
             
-            // Amiti habla de inmediato con la voz sintetizada
+            // Amiti habla de inmediato usando el reproductor ya autorizado
             hablarTextoConNucleo(data.respuesta, data.identidad);
         })
         .catch(err => console.error("Error en enlace con el núcleo:", err));
     }
 </script>
+
