@@ -1,3 +1,34 @@
+<!-- BOTÓN DE DIAGNÓSTICO (ESTO QUEDA EN LA LÍNEA 1, 2, 3...) -->
+<button onclick="diagnosticoVoz()" style="width: 100%; padding: 15px; background-color: #ff0055; color: white; font-weight: bold; border: none; border-radius: 10px; margin-bottom: 15px; font-size: 16px;">
+    🔊 FORZAR DIAGNÓSTICO DE VOZ
+</button>
+
+<script>
+function diagnosticoVoz() {
+    if (!('speechSynthesis' in window)) {
+        alert("Tu navegador no soporta voces nativas.");
+        return;
+    }
+    window.speechSynthesis.cancel();
+    let msg = new SpeechSynthesisUtterance("Diagnóstico de hardware completado con éxito. Amiti te escucha.");
+    msg.lang = 'es-ES';
+    msg.pitch = 1.2;
+    window.speechSynthesis.speak(msg);
+    alert("Comando enviado al parlante. Si no escuchaste nada, el navegador tiene bloqueado el audio.");
+}
+</script>
+<!-- FIN DEL DIAGNÓSTICO -->
+
+<!-- AQUÍ EMPIEZA TU CÓDIGO ORIGINAL (ANTIGUA LÍNEA 1) -->
+<div class="amiti-leader">
+    <div class="amiti-status-badge">Núcleo Activo</div>
+    <span id="contador">0</span> min
+</div>
+
+<script>
+    // 1. Temporizador de inteligencia activo
+// ... (y de aquí para abajo sigue todo tu código normal) ...
+
 <div class="amiti-leader">
     <div class="amiti-status-badge">Núcleo Activo</div>
     <span id="contador">0</span> min
