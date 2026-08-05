@@ -162,14 +162,17 @@ function diagnosticoVoz() {
         .catch(err => console.error("Error al enviar ubicación al núcleo:", err));
     }
 
-    // Validación de los 3 Comandos de Activación del Mapa
-    function evaluarComandoUbicacion(comando) {
-        let cmd = comando.toLowerCase().trim();
-        return cmd.includes("muéstrame el mapa") || cmd.includes("muestrame el mapa") ||
-               cmd.includes("en donde estoy") || cmd.includes("en dónde estoy") ||
-               cmd.includes("mi ubicación en tiempo real") || cmd.includes("mi ubicacion en tiempo real");
-    }
-
+    // Validación flexible de intenciones de ubicación (Tolera errores de ortografía y espacios)
+function evaluarComandoUbicacion(comando) {
+    let cmd = comando.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Elimina acentos
+        .trim();
+        
+    return cmd.includes("mapa") || 
+           cmd.includes("donde estoy") || 
+           cmd.includes("donde me encuentro") || 
+           cmd.includes("ubicacion");
+}
     // 4. Función central con TRUCO MÓVIL y Filtro de Ubicación
     function enviarComandoAmiti(textoComando) {
         if (!textoComando.trim()) return;
