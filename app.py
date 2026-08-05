@@ -306,7 +306,43 @@ def index():
             const chatBox = document.getElementById('chat-box');
             const div = document.createElement('div');
             div.className = 'mensaje ' + emisor;
-            div.innerHTML = (emisor === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> 💬 ") + formatearTexto(texto);
+            
+            // Construye el contenido del mensaje
+            let contenidoHTML = (emisor === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> 💬 ") + formatearTexto(texto);
+            
+            // 🗺️ INTERCEPTOR: SI AMITI ENVÍA EL COMANDO GPS, CREAMOS EL MAPA EN EL CHAT
+            if (emisor === 'amiti' && (texto.includes("Sincronizando coordenadas GPS") || texto.includes("Desplegando interfaz de mapas"))) {
+                // Crear un ID único para el contenedor del mapa
+                const mapId = 'map-' + Date.now();
+                
+                // Inyectamos un contenedor "cargando"
+                contenidoHTML += `<br><br><div id="${mapId}" style="width: 100%; height: 230px; border: 1px dashed #00ffcc; border-radius: 8px; background-color: #021210; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #00ffcc;">📡 Conectando con satélite...</div>`;
+                
+                // Activamos el sensor GPS del teléfono en segundo plano
+                setTimeout(() => {
+                    if(navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                let lat = pos.coords.latitude;
+                                let lon = pos.coords.longitude;
+                                
+                                // Insertamos un mapa interactivo (OpenStreetMap) con un filtro CSS para invertir los colores (Estilo Dark/Hacker)
+                                let iframeHTML = `<iframe width="100%" height="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" style="filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(120%); border-radius: 8px;" src="https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.008}%2C${lat-0.008}%2C${lon+0.008}%2C${lat+0.008}&layer=mapnik&marker=${lat}%2C${lon}"></iframe>`;
+                                
+                                document.getElementById(mapId).innerHTML = iframeHTML;
+                            },
+                            (err) => {
+                                document.getElementById(mapId).innerHTML = "⚠️ Señal GPS denegada o inaccesible.";
+                            },
+                            { enableHighAccuracy: true }
+                        );
+                    } else {
+                        document.getElementById(mapId).innerHTML = "⚠️ Hardware GPS no soportado.";
+                    }
+                }, 800); // 800ms de retraso para dar el efecto de carga de Amiti
+            }
+
+            div.innerHTML = contenidoHTML;
             chatBox.appendChild(div);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -410,13 +446,12 @@ def chat():
                 extension_engine.tarea_1_ingresar_conocimiento("Consulta del Creador", respuesta)
                 respuesta += "\n\n🧠 **[AMITI EXTENSIÓN]** He analizado esta información y la he asimilado en mi base de conocimientos permanente."
 
-           # ⚡ 3. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
+        # ⚡ 3. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
         elif extension_engine and any(kw in texto_lower for kw in palabras_algoritmo):
             if "aprende" in texto_lower or "guarda" in texto_lower:
                 extension_engine.tarea_1_ingresar_conocimiento("Chat", texto_usuario)
                 respuesta = "🧠 **[AMITI EXTENSIÓN]** Nuevo conocimiento registrado e indexado con éxito."
             else:
-                # CORRECCIÓN: El "else" aquí estaba mal identado en tu código original, ahora está perfecto.
                 respuesta = extension_engine.generar_algoritmo(texto_usuario)
         
         # ⚙️ 4. DEFAULT: PROCESAMIENTO GENERAL (Con filtro anti-bloqueo ciego)
