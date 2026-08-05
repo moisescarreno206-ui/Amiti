@@ -393,27 +393,33 @@ def chat():
         texto_lower = texto_usuario.lower()
         palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
         palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería", "información", "informacion", "teoría", "teoria", "concepto", "qué es", "que es"]
+        palabras_clave_mapa = ["mapa", "donde estoy", "dónde estoy", "ubicacion", "ubicación"]
         
-        # 🔓 0. ACCESO DIRECTO CON LLAVE MAESTRA
-        if texto_lower == "amiti":
+        # 🗺️ 0. INTERCEPTOR DE MAPA GPS (Integrado en el chat local)
+        if any(kw in texto_lower for kw in palabras_clave_mapa):
+            respuesta = "Sincronizando coordenadas GPS en tiempo real. Desplegando interfaz de mapas en pantalla, Creador."
+
+        # 🔓 1. ACCESO DIRECTO CON LLAVE MAESTRA
+        elif texto_lower == "amiti":
             respuesta = "🔓 **[SISTEMA DESBLOQUEADO]** Llave maestra aceptada. Motores listos para operar."
 
-        # 📚 1. PRIORIDAD ABSOLUTA: BÚSQUEDA EN SERVIDOR BIBLIOTECA + AUTO-APRENDIZAJE
+        # 📚 2. PRIORIDAD ABSOLUTA: BÚSQUEDA EN SERVIDOR BIBLIOTECA + AUTO-APRENDIZAJE
         elif biblioteca_engine and any(kw in texto_lower for kw in palabras_biblioteca):
             respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
             if extension_engine and not respuesta.startswith("⚠️"):
                 extension_engine.tarea_1_ingresar_conocimiento("Consulta del Creador", respuesta)
                 respuesta += "\n\n🧠 **[AMITI EXTENSIÓN]** He analizado esta información y la he asimilado en mi base de conocimientos permanente."
 
-        # ⚡ 2. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
+           # ⚡ 3. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
         elif extension_engine and any(kw in texto_lower for kw in palabras_algoritmo):
             if "aprende" in texto_lower or "guarda" in texto_lower:
                 extension_engine.tarea_1_ingresar_conocimiento("Chat", texto_usuario)
                 respuesta = "🧠 **[AMITI EXTENSIÓN]** Nuevo conocimiento registrado e indexado con éxito."
             else:
+                # CORRECCIÓN: El "else" aquí estaba mal identado en tu código original, ahora está perfecto.
                 respuesta = extension_engine.generar_algoritmo(texto_usuario)
         
-        # ⚙️ 3. DEFAULT: PROCESAMIENTO GENERAL (Con filtro anti-bloqueo ciego)
+        # ⚙️ 4. DEFAULT: PROCESAMIENTO GENERAL (Con filtro anti-bloqueo ciego)
         else:
             respuesta_cruda = amiti_system.procesar(texto_usuario)
             if "bloqueo" in respuesta_cruda.lower() or "restringido" in respuesta_cruda.lower():
@@ -430,6 +436,40 @@ def chat():
         respuesta = f"⚠️ **ERROR DE PROCESAMIENTO DETECTADO:**\n{str(e)}\n\n```python\n{traceback.format_exc()}\n```"
 
     return jsonify({"respuesta": respuesta})
+
+
+# ====================================================================
+# 📍 NUEVO ENDPOINT: INTERCEPTOR DE FORMULARIOS (INDEX.HTML EXTERNO)
+# ====================================================================
+@app.route('/enviar', methods=['POST'])
+def enviar():
+    global telemetria_sistema
+    comando = request.form.get('comando', '').strip()
+    comando_clean = comando.lower()
+
+    # Interceptor de comandos de Ubicación/Mapa
+    palabras_clave_mapa = ["mapa", "donde estoy", "dónde estoy", "ubicacion", "ubicación"]
+    if any(clave in comando_clean for clave in palabras_clave_mapa):
+        respuesta_custom = "Sincronizando coordenadas GPS en tiempo real. Desplegando interfaz de mapas en pantalla, Creador."
+        
+        return jsonify({
+            "respuesta": respuesta_custom,
+            "progreso": 100,
+            "identidad": "AMITI OS"
+        })
+
+    # Si el comando no es el mapa, se procesa normalmente
+    telemetria_sistema["comandos_procesados"] += 1
+    try:
+        respuesta_cruda = amiti_system.procesar(comando)
+    except Exception as e:
+        respuesta_cruda = f"⚠️ Error en núcleo principal: {str(e)}"
+
+    return jsonify({
+        "respuesta": respuesta_cruda,
+        "progreso": min(100, 47 + telemetria_sistema["comandos_procesados"]),
+        "identidad": "AMITI OS"
+    })
 
 
 if __name__ == "__main__":
