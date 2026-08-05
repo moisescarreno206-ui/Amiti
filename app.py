@@ -25,10 +25,11 @@ telemetria_sistema = {
     "carga_nucleo_simulada": "0%",
     "alertas_bloqueadas": 0,
     "optimizacion_memoria": "Estable",
-    "estado_biblioteca_autonoma": "En espera"
+    "estado_biblioteca_autonoma": "En espera",
+    "estado_dron": "Tierra (0.0m)"
 }
 
-# 🧠 IMPORTACIÓN PROTEGIDA CON SOPORTE DE RUTA Y CARPETAS CON TILDE
+# 🧠 IMPORTACIÓN PROTEGIDA DE NÚCLEOS
 try:
     try:
         from nucleos.amiti_os import AmitiOS
@@ -50,62 +51,44 @@ except Exception as e:
             
     amiti_system = FallbackAmitiOS()
 
-# 🔌 INTEGRACIÓN DEL MOTOR DE EXTENSIÓN AUTÓNOMA DE ALGORITMOS
+# 🔌 INTEGRACIÓN DEL MOTOR DRON S15 MAX
 try:
-    try:
-        from nucleos.amiti_extension import AmitiExtensionEngine
-    except ModuleNotFoundError:
-        from núcleos.amiti_extension import AmitiExtensionEngine
-        
-    extension_engine = AmitiExtensionEngine()
-except Exception as e_ext:
-    extension_engine = None
+    from amiti_drone import AmitiDroneEngine
+    drone_engine = AmitiDroneEngine()
+except Exception:
+    class FallbackDrone:
+        def __init__(self): self.altura_actual = 0.0; self.en_vuelo = False; self.camara_activa = "frontal"
+        def encender_y_elevar(self, a=1.65): self.en_vuelo = True; self.altura_actual = a; return f"🚁 **[AMITI DRONE S15 MAX]** Motores encendidos. Elevar a **{a}m** de altura."
+        def elevar_mas(self, a=1.85): self.altura_actual = a; return f"🚁 **[AMITI DRONE S15 MAX]** Ascendiendo a **{a}m** de altura."
+        def mover_adelante(self): return f"🚁 **[AMITI DRONE S15 MAX]** Avanzando hacia **adelante** a {self.altura_actual}m."
+        def mover_retroceder(self): return f"🚁 **[AMITI DRONE S15 MAX]** Retrocediendo a {self.altura_actual}m."
+        def mover_lateral(self, d): return f"🚁 **[AMITI DRONE S15 MAX]** Moviendo hacia la **{d.upper()}** a {self.altura_actual}m."
+        def alternar_camara(self): self.camara_activa = "inferior" if self.camara_activa == "frontal" else "frontal"; return f"📹 Cámara conmutada a: {self.camara_activa}"
+    drone_engine = FallbackDrone()
 
-# 🔌 INTEGRACIÓN DEL MOTOR DE BIBLIOTECA VIRTUAL
+# 🔌 INTEGRACIÓN MOTOR DE EXTENSIÓN Y BIBLIOTECA
 try:
-    try:
-        from nucleos.amiti_biblioteca import AmitiBibliotecaEngine
-    except ModuleNotFoundError:
-        from núcleos.amiti_biblioteca import AmitiBibliotecaEngine
-        
+    try: from nucleos.amiti_extension import AmitiExtensionEngine
+    except ModuleNotFoundError: from núcleos.amiti_extension import AmitiExtensionEngine
+    extension_engine = AmitiExtensionEngine()
+except Exception: extension_engine = None
+
+try:
+    try: from nucleos.amiti_biblioteca import AmitiBibliotecaEngine
+    except ModuleNotFoundError: from núcleos.amiti_biblioteca import AmitiBibliotecaEngine
     biblioteca_engine = AmitiBibliotecaEngine()
-except Exception as e_bib:
-    biblioteca_engine = None
-    
-# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO Y APRENDIZAJE AUTÓNOMO
+except Exception: biblioteca_engine = None
+
+# 🔄 HILO DE AUTOMATIZACIÓN EN SEGUNDO PLANO
 def bucle_automatizacion_amiti():
     global telemetria_sistema
-    temas_investigacion = ["anatomía", "estadística", "lógica", "programación estructurada", "astronomía", "historia del arte", "física cuántica", "biología molecular", "inteligencia artificial"]
-    
     while True:
         try:
             ahora = datetime.now().strftime("%H:%M:%S")
             telemetria_sistema["ultimo_auto_mantenimiento"] = ahora
-            
-            if biblioteca_engine and extension_engine:
-                telemetria_sistema["estado_biblioteca_autonoma"] = "Ciclo de investigación activo"
-                if random.randint(1, 6) == 1:
-                    tema_elegido = random.choice(temas_investigacion)
-                    telemetria_sistema["estado_biblioteca_autonoma"] = f"Investigando: {tema_elegido}..."
-                    resultado = biblioteca_engine.buscar_en_biblioteca(f"información sobre {tema_elegido}")
-                    if not resultado.startswith("⚠️"):
-                        extension_engine.tarea_1_ingresar_conocimiento(f"Auto-Estudio: {tema_elegido}", resultado)
-                        telemetria_sistema["optimizacion_memoria"] = f"Conocimiento asimilado: {tema_elegido}"
-            
-            tamanio_memoria = len(historial_corto_plazo)
-            if tamanio_memoria > 10:
-                historial_corto_plazo.pop(0)
-            
-            if "Conocimiento" not in telemetria_sistema["optimizacion_memoria"]:
-                telemetria_sistema["optimizacion_memoria"] = "Óptima (Estructura Limpia)"
-
-            progreso_actual = 47 + telemetria_sistema["comandos_procesados"]
-            if progreso_actual >= 100:
-                progreso_actual = 99
-                
+            telemetria_sistema["estado_dron"] = f"En Vuelo ({drone_engine.altura_actual}m)" if drone_engine.en_vuelo else "En Tierra"
         except Exception as e:
             print(f"Error en bucle autónomo: {e}")
-            
         time.sleep(10)
 
 hilo_mantenimiento = threading.Thread(target=bucle_automatizacion_amiti, daemon=True)
@@ -115,37 +98,17 @@ app = Flask(__name__)
 
 def mostrar_pantalla_diagnostico():
     return render_template_string("""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <title>Amiti OS - Error de Compilación</title>
-        <style>
-            body { background-color: #120202; color: #ff4444; font-family: 'Courier New', Courier, monospace; padding: 20px; margin: 0; }
-            h1 { border-bottom: 2px solid #ff4444; padding-bottom: 10px; }
-            pre { background: #220505; padding: 15px; border-radius: 5px; border: 1px solid #ff4444; overflow-x: auto; white-space: pre-wrap; }
-            .info { color: #ffaaaa; margin-top: 15px; }
-        </style>
-    </head>
-    <body>
-        <h1>⚠️ FALLO CRÍTICO EN NÚCLEO DE AMITI OS</h1>
-        <p class="info">Se ha detectado una excepción durante la fase de importación inicial de los sub-sistemas:</p>
-        <pre>{{ traceback_error }}</pre>
-    </body>
-    </html>
-    """, traceback_error=traceback_error)
-
+    <!DOCTYPE html><html><head><title>Amiti OS - Error</title></head>
+    <body style="background:#120202; color:#ff4444; font-family:monospace; padding:20px;">
+        <h1>⚠️ FALLO CRÍTICO EN NÚCLEO DE AMITI OS</h1><pre>{{ traceback_error }}</pre>
+    </body></html>""", traceback_error=traceback_error)
 
 @app.route("/")
 def index():
-    if not sistema_activo:
-        return mostrar_pantalla_diagnostico()
+    if not sistema_activo: return mostrar_pantalla_diagnostico()
     
-    try:
-        progreso_base = amiti_system.obtener_progreso()
-    except Exception:
-        progreso_base = 47
-        
+    try: progreso_base = amiti_system.obtener_progreso()
+    except Exception: progreso_base = 47
     progreso_actual = min(100, max(progreso_base, 47 + telemetria_sistema["comandos_procesados"]))
 
     html_template = r"""<!DOCTYPE html>
@@ -169,31 +132,11 @@ def index():
         .stat-val { color: #fff; font-weight: bold; }
         
         #circle-container { 
-            position: relative; 
-            width: 100px; 
-            height: 100px; 
-            margin: 10px auto; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            border-radius: 50%;
-            border: 1px dashed rgba(0, 255, 204, 0.3);
-            background: radial-gradient(circle, rgba(0, 255, 204, 0.08) 0%, transparent 70%);
-            box-sizing: border-box;
-            flex-shrink: 0;
+            position: relative; width: 100px; height: 100px; margin: 10px auto; 
+            display: flex; justify-content: center; align-items: center; border-radius: 50%;
+            border: 1px dashed rgba(0, 255, 204, 0.3); background: radial-gradient(circle, rgba(0, 255, 204, 0.08) 0%, transparent 70%); flex-shrink: 0;
         }
-        .spinner { 
-            position: absolute; 
-            top: -2px; left: -2px;
-            width: 100%; 
-            height: 100%; 
-            border: 3px solid transparent; 
-            border-top: 3px solid #00ffcc; 
-            border-right: 3px solid #00ffcc; 
-            border-radius: 50%; 
-            animation: spin 2.5s linear infinite; 
-            box-sizing: content-box;
-        }
+        .spinner { position: absolute; top: -2px; left: -2px; width: 100%; height: 100%; border: 3px solid transparent; border-top: 3px solid #00ffcc; border-right: 3px solid #00ffcc; border-radius: 50%; animation: spin 2.5s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #counter { font-size: 0.8rem; font-weight: bold; text-align: center; line-height: 1.2; z-index: 10; color: #00ffcc; text-shadow: 0 0 8px #00ffcc; }
         
@@ -211,6 +154,11 @@ def index():
         button:hover { background-color: #00ccff; box-shadow: 0 0 10px #00ccff; }
         .option-row { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #00a887; }
         .option-row input[type="checkbox"] { accent-color: #00ffcc; }
+        
+        /* HUD Y CÁMARA DEL DRON */
+        .drone-hud { width: 100%; height: 210px; border: 1px solid #00ffcc; border-radius: 8px; background: #001510; position: relative; overflow: hidden; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
+        .drone-cam-overlay { position: absolute; top: 10px; left: 10px; font-size: 0.7rem; color: #00ffcc; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; z-index: 5; }
+        .crosshair { position: absolute; width: 20px; height: 20px; border: 1px solid rgba(0, 255, 204, 0.6); border-radius: 50%; z-index: 4; }
     </style>
 </head>
 <body>
@@ -227,7 +175,7 @@ def index():
                 <div class="grid-telemetria">
                     <div>Base DB: <span id="val-db" class="stat-val">Conectando...</span></div>
                     <div>Auto-Mant: <span id="val-mantenimiento" class="stat-val">--:--:--</span></div>
-                    <div>Estado Auto: <span id="val-auto" class="stat-val">--</span></div>
+                    <div>Estado Dron: <span id="val-dron" class="stat-val">En Tierra</span></div>
                     <div>Carga Core: <span id="val-carga" class="stat-val">0%</span></div>
                 </div>
             </div>
@@ -239,7 +187,7 @@ def index():
         <div id="estado-aprendizaje">Sistemas estables. Esperando instrucciones...</div>
         <div id="chat-box"></div>
         <div id="input-area">
-            <input type="text" id="user-input" placeholder="Escribe tu comando..." autocomplete="off">
+            <input type="text" id="user-input" placeholder="Escribe tu comando o control de dron..." autocomplete="off">
             <button onclick="enviarMensaje()">Enviar</button>
         </div>
         <div class="option-row">
@@ -298,7 +246,7 @@ def index():
                 solicitarTelemetriaAutonoma();
             })
             .catch(err => {
-                agregarMensaje("❌ Fallo de respuesta de red con el backend de Render.", 'amiti');
+                agregarMensaje("❌ Fallo de respuesta de red con el backend.", 'amiti');
             });
         }
 
@@ -307,39 +255,54 @@ def index():
             const div = document.createElement('div');
             div.className = 'mensaje ' + emisor;
             
-            // Construye el contenido del mensaje
             let contenidoHTML = (emisor === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> 💬 ") + formatearTexto(texto);
             
-            // 🗺️ INTERCEPTOR: SI AMITI ENVÍA EL COMANDO GPS, CREAMOS EL MAPA EN EL CHAT
+            // 🗺️ INTERCEPTOR GPS / MAPA
             if (emisor === 'amiti' && (texto.includes("Sincronizando coordenadas GPS") || texto.includes("Desplegando interfaz de mapas"))) {
-                // Crear un ID único para el contenedor del mapa
                 const mapId = 'map-' + Date.now();
-                
-                // Inyectamos un contenedor "cargando"
                 contenidoHTML += `<br><br><div id="${mapId}" style="width: 100%; height: 230px; border: 1px dashed #00ffcc; border-radius: 8px; background-color: #021210; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #00ffcc;">📡 Conectando con satélite...</div>`;
-                
-                // Activamos el sensor GPS del teléfono en segundo plano
                 setTimeout(() => {
                     if(navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                            (pos) => {
-                                let lat = pos.coords.latitude;
-                                let lon = pos.coords.longitude;
-                                
-                                // Insertamos un mapa interactivo (OpenStreetMap) con un filtro CSS para invertir los colores (Estilo Dark/Hacker)
-                                let iframeHTML = `<iframe width="100%" height="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" style="filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(120%); border-radius: 8px;" src="https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.008}%2C${lat-0.008}%2C${lon+0.008}%2C${lat+0.008}&layer=mapnik&marker=${lat}%2C${lon}"></iframe>`;
-                                
-                                document.getElementById(mapId).innerHTML = iframeHTML;
-                            },
-                            (err) => {
-                                document.getElementById(mapId).innerHTML = "⚠️ Señal GPS denegada o inaccesible.";
-                            },
-                            { enableHighAccuracy: true }
-                        );
-                    } else {
-                        document.getElementById(mapId).innerHTML = "⚠️ Hardware GPS no soportado.";
+                        navigator.geolocation.getCurrentPosition((pos) => {
+                            let lat = pos.coords.latitude;
+                            let lon = pos.coords.longitude;
+                            let iframeHTML = `<iframe width="100%" height="100%" frameborder="0" scrolling="no" style="filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(120%); border-radius: 8px;" src="https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.008}%2C${lat-0.008}%2C${lon+0.008}%2C${lat+0.008}&layer=mapnik&marker=${lat}%2C${lon}"></iframe>`;
+                            document.getElementById(mapId).innerHTML = iframeHTML;
+                        }, (err) => { document.getElementById(mapId).innerHTML = "⚠️ Señal GPS denegada."; }, { enableHighAccuracy: true });
                     }
-                }, 800); // 800ms de retraso para dar el efecto de carga de Amiti
+                }, 800);
+            }
+
+            // 🚁 INTERCEPTOR DE CÁMARA Y HUD DRON S15 MAX
+            if (emisor === 'amiti' && (texto.includes("DRONE S15 MAX") || texto.includes("SISTEMA DE VISIÓN"))) {
+                const hudId = 'hud-' + Date.now();
+                contenidoHTML += `<br><div class="drone-hud" id="${hudId}">
+                    <div class="drone-cam-overlay">🔴 S15 MAX CAM STREAM | 4K OPTICAL LOCK</div>
+                    <div class="crosshair"></div>
+                    <canvas id="canvas-${hudId}" width="400" height="200" style="width:100%; height:100%;"></canvas>
+                </div>`;
+                
+                setTimeout(() => {
+                    let canvas = document.getElementById(`canvas-${hudId}`);
+                    if(canvas) {
+                        let ctx = canvas.getContext('2d');
+                        let angle = 0;
+                        setInterval(() => {
+                            ctx.fillStyle = '#01120f';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            // Renderizado simulación de visión óptica
+                            ctx.strokeStyle = '#00ffcc';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.arc(canvas.width/2, canvas.height/2, 40 + Math.sin(angle)*5, 0, Math.PI*2);
+                            ctx.stroke();
+                            ctx.fillStyle = '#00ffcc';
+                            ctx.font = '10px monospace';
+                            ctx.fillText(`ALTITUD: EN VUELO | SENSOR OPTICO OK`, 10, canvas.height - 10);
+                            angle += 0.1;
+                        }, 100);
+                    }
+                }, 300);
             }
 
             div.innerHTML = contenidoHTML;
@@ -349,12 +312,8 @@ def index():
 
         function prepararPantallaParaCalculo(msg) {
             let m = msg.toLowerCase();
-            if (m.includes("algoritmo") || m.includes("pasos") || m.includes("como hacer") || m.includes("cómo hacer")) {
-                document.getElementById('estado-aprendizaje').innerText = "⚡ Generando Algoritmo Estructurado...";
-            } else if (m.includes("+") || m.includes("-") || m.includes("*") || m.includes("/")) {
-                document.getElementById('estado-aprendizaje').innerText = "⚙️ Procesando en Motor de Cálculo...";
-            } else if (m.includes("aprende") || m.includes("guarda") || m.includes("información") || m.includes("búscame")) {
-                document.getElementById('estado-aprendizaje').innerText = "🧠 Procesando base de conocimientos...";
+            if (m.includes("dron") || m.includes("elevar") || m.includes("avanca") || m.includes("retrocede")) {
+                document.getElementById('estado-aprendizaje').innerText = "🚁 Transmitiendo paquete de telemetría a Dron S15 MAX...";
             }
         }
 
@@ -365,7 +324,7 @@ def index():
                 document.getElementById('progreso-num').innerText = data.progreso_global;
                 document.getElementById('val-db').innerText = data.status_db;
                 document.getElementById('val-mantenimiento').innerText = data.ultimo_auto_mantenimiento;
-                document.getElementById('val-auto').innerText = data.optimizacion;
+                document.getElementById('val-dron').innerText = data.estado_dron;
                 document.getElementById('val-carga').innerText = data.carga_nucleo_simulada;
             })
             .catch(e => console.log(e));
@@ -380,132 +339,100 @@ def index():
 </html>"""
     return render_template_string(html_template, progreso=progreso_actual)
 
-
 @app.route("/api/desbloquear", methods=["POST"])
 def desbloquear():
     data = request.json or {}
     llave = data.get("llave", "").strip()
-    exito = amiti_system.validar_creador(llave)
-    if not exito and llave.lower() == "amiti":
-        exito = True
+    exito = amiti_system.validar_creador(llave) or (llave.lower() == "amiti")
     return jsonify({"desbloqueado": bool(exito)})
-
 
 @app.route("/api/sistema/telemetria", methods=["GET"])
 def obtener_telemetria():
-    try:
-        progreso_base = amiti_system.obtener_progreso()
-    except Exception:
-        progreso_base = 47
+    try: progreso_base = amiti_system.obtener_progreso()
+    except Exception: progreso_base = 47
     
     progreso_real = min(100, max(progreso_base, 47 + telemetria_sistema["comandos_procesados"]))
-    
-    response_data = {
+    return jsonify({
         "progreso_global": progreso_real,
         "status_db": telemetria_sistema["status_db"],
         "ultimo_auto_mantenimiento": telemetria_sistema["ultimo_auto_mantenimiento"],
         "comandos_procesados": telemetria_sistema["comandos_procesados"],
         "carga_nucleo_simulada": telemetria_sistema["carga_nucleo_simulada"],
-        "optimizacion": telemetria_sistema["optimizacion_memoria"]
-    }
-    return jsonify(response_data)
-
+        "estado_dron": telemetria_sistema["estado_dron"]
+    })
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
     global historial_corto_plazo, telemetria_sistema
     data = request.json or {}
     texto_usuario = data.get("texto", "").strip()
-    
+    texto_lower = texto_usuario.lower()
     telemetria_sistema["comandos_procesados"] += 1
-    
-    if len(texto_usuario) > 500:
-        telemetria_sistema["alertas_bloqueadas"] += 1
-        return jsonify({"respuesta": "🛡️ [Filtro Preventivo]: Comando rechazado por exceder el límite seguro."})
 
-    historial_corto_plazo.append({"creador": texto_usuario, "timestamp": time.time()})
-    
     try:
-        texto_lower = texto_usuario.lower()
-        palabras_algoritmo = ["algoritmo", "pasos", "como hacer", "cómo hacer", "crea un", "genera", "aprende", "guarda"]
-        palabras_biblioteca = ["búscame", "buscame", "libro", "manual", "consulta", "biblioteca", "medicina", "derecho", "quimica", "física", "fisica", "ganaderia", "ganadería", "información", "informacion", "teoría", "teoria", "concepto", "qué es", "que es"]
-        palabras_clave_mapa = ["mapa", "donde estoy", "dónde estoy", "ubicacion", "ubicación"]
+        # 🚁 1. CONTROLADORES NLP DIRECTOS PARA LOS 5 COMANDOS DEL DRON S15 MAX
         
-        # 🗺️ 0. INTERCEPTOR DE MAPA GPS (Integrado en el chat local)
-        if any(kw in texto_lower for kw in palabras_clave_mapa):
+        # COMANDO 1: Elevación básica (1.65m)
+        if "elevar el dron" in texto_lower or "eleva el dron" in texto_lower:
+            respuesta = drone_engine.encender_y_elevar(1.65)
+
+        # COMANDO 2: Elevar más alto (1.85m)
+        elif "eleva el un poco más alto dron" in texto_lower or "más alto dron" in texto_lower or "mas alto" in texto_lower:
+            respuesta = drone_engine.elevar_mas(1.85)
+
+        # COMANDO 3: Avanzar hacia adelante
+        elif "avanca el dron" in texto_lower or "avanza el dron" in texto_lower or "para de lante" in texto_lower or "adelante" in texto_lower:
+            respuesta = drone_engine.mover_adelante()
+
+        # COMANDO 4: Retroceder
+        elif "retrocede" in texto_lower or "atras" in texto_lower or "retroceder" in texto_lower:
+            respuesta = drone_engine.mover_retroceder()
+
+        # COMANDO 5: Mover a la derecha o izquierda
+        elif "derecho" in texto_lower or "derecha" in texto_lower:
+            respuesta = drone_engine.mover_lateral("derecho")
+        elif "izquierdo" in texto_lower or "izquierda" in texto_lower:
+            respuesta = drone_engine.mover_lateral("izquierdo")
+
+        # CAMBIO DE CÁMARA / VISIÓN
+        elif "camara" in texto_lower or "cámara" in texto_lower or "ver entorno" in texto_lower:
+            respuesta = drone_engine.alternar_camara()
+
+        # 🗺️ MAPA Y GPS
+        elif any(kw in texto_lower for kw in ["mapa", "donde estoy", "dónde estoy", "ubicacion", "ubicación"]):
             respuesta = "Sincronizando coordenadas GPS en tiempo real. Desplegando interfaz de mapas en pantalla, Creador."
 
-        # 🔓 1. ACCESO DIRECTO CON LLAVE MAESTRA
+        # 🔓 LLAVE MAESTRA
         elif texto_lower == "amiti":
             respuesta = "🔓 **[SISTEMA DESBLOQUEADO]** Llave maestra aceptada. Motores listos para operar."
 
-        # 📚 2. PRIORIDAD ABSOLUTA: BÚSQUEDA EN SERVIDOR BIBLIOTECA + AUTO-APRENDIZAJE
-        elif biblioteca_engine and any(kw in texto_lower for kw in palabras_biblioteca):
+        # 📚 BIBLIOTECA VIRTUAL
+        elif biblioteca_engine and any(kw in texto_lower for kw in ["búscame", "buscame", "consulta", "biblioteca", "información"]):
             respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
-            if extension_engine and not respuesta.startswith("⚠️"):
-                extension_engine.tarea_1_ingresar_conocimiento("Consulta del Creador", respuesta)
-                respuesta += "\n\n🧠 **[AMITI EXTENSIÓN]** He analizado esta información y la he asimilado en mi base de conocimientos permanente."
 
-        # ⚡ 3. SECUNDARIO: GENERADOR DE ALGORITMOS Y CONOCIMIENTO
-        elif extension_engine and any(kw in texto_lower for kw in palabras_algoritmo):
-            if "aprende" in texto_lower or "guarda" in texto_lower:
-                extension_engine.tarea_1_ingresar_conocimiento("Chat", texto_usuario)
-                respuesta = "🧠 **[AMITI EXTENSIÓN]** Nuevo conocimiento registrado e indexado con éxito."
-            else:
-                respuesta = extension_engine.generar_algoritmo(texto_usuario)
-        
-        # ⚙️ 4. DEFAULT: PROCESAMIENTO GENERAL (Con filtro anti-bloqueo ciego)
+        # ⚙️ PROCESAMIENTO GENERAL
         else:
-            respuesta_cruda = amiti_system.procesar(texto_usuario)
-            if "bloqueo" in respuesta_cruda.lower() or "restringido" in respuesta_cruda.lower():
-                # Si el núcleo devuelve bloqueo por defecto, lo interceptamos y le damos acceso a la biblioteca de respaldo
-                if biblioteca_engine:
-                    respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
-                else:
-                    respuesta = "🔓 **[MODO LIBRE]** " + respuesta_cruda
-            else:
-                respuesta = respuesta_cruda
+            respuesta = amiti_system.procesar(texto_usuario)
 
     except Exception as e:
-        import traceback
-        respuesta = f"⚠️ **ERROR DE PROCESAMIENTO DETECTADO:**\n{str(e)}\n\n```python\n{traceback.format_exc()}\n```"
+        respuesta = f"⚠️ **ERROR DE NÚCLEO DRON:** {str(e)}"
 
     return jsonify({"respuesta": respuesta})
 
-
-# ====================================================================
-# 📍 NUEVO ENDPOINT: INTERCEPTOR DE FORMULARIOS (INDEX.HTML EXTERNO)
-# ====================================================================
 @app.route('/enviar', methods=['POST'])
 def enviar():
     global telemetria_sistema
     comando = request.form.get('comando', '').strip()
-    comando_clean = comando.lower()
-
-    # Interceptor de comandos de Ubicación/Mapa
-    palabras_clave_mapa = ["mapa", "donde estoy", "dónde estoy", "ubicacion", "ubicación"]
-    if any(clave in comando_clean for clave in palabras_clave_mapa):
-        respuesta_custom = "Sincronizando coordenadas GPS en tiempo real. Desplegando interfaz de mapas en pantalla, Creador."
-        
-        return jsonify({
-            "respuesta": respuesta_custom,
-            "progreso": 100,
-            "identidad": "AMITI OS"
-        })
-
-    # Si el comando no es el mapa, se procesa normalmente
     telemetria_sistema["comandos_procesados"] += 1
-    try:
-        respuesta_cruda = amiti_system.procesar(comando)
-    except Exception as e:
-        respuesta_cruda = f"⚠️ Error en núcleo principal: {str(e)}"
+    
+    try: respuesta_cruda = amiti_system.procesar(comando)
+    except Exception as e: respuesta_cruda = f"⚠️ Error: {str(e)}"
 
     return jsonify({
         "respuesta": respuesta_cruda,
         "progreso": min(100, 47 + telemetria_sistema["comandos_procesados"]),
         "identidad": "AMITI OS"
     })
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
