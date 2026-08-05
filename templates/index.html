@@ -1,4 +1,8 @@
-<!-- BOTÓN DE DIAGNÓSTICO (ESTO QUEDA EN LA LÍNEA 1, 2, 3...) -->
+<!-- Carga de librerías para Leaflet Map (Colocar preferiblemente en el <head> de tu HTML) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- 1. BOTÓN DE DIAGNÓSTICO -->
 <button onclick="diagnosticoVoz()" style="width: 100%; padding: 15px; background-color: #ff0055; color: white; font-weight: bold; border: none; border-radius: 10px; margin-bottom: 15px; font-size: 16px;">
     🔊 FORZAR DIAGNÓSTICO DE VOZ
 </button>
@@ -19,25 +23,28 @@ function diagnosticoVoz() {
 </script>
 <!-- FIN DEL DIAGNÓSTICO -->
 
-<!-- AQUÍ EMPIEZA TU CÓDIGO ORIGINAL (ANTIGUA LÍNEA 1) -->
+<!-- 2. PRESENTACIÓN Y NÚCLEO DE AMITI -->
 <div class="amiti-leader">
     <div class="amiti-status-badge">Núcleo Activo</div>
     <span id="contador">0</span> min
 </div>
 
-<script>
-    // 1. Temporizador de inteligencia activo
-// ... (y de aquí para abajo sigue todo tu código normal) ...
-
-<div class="amiti-leader">
-    <div class="amiti-status-badge">Núcleo Activo</div>
-    <span id="contador">0</span> min
+<!-- CONTENEDOR DEL MAPA (Oculto por defecto, se activa solo con comando) -->
+<div id="mapa-amiti-container" style="display: none; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #30363d; margin: 15px 0; background: #0d1117;">
+    <div id="mapa-header" style="background: #161b22; padding: 10px; color: #58a6ff; font-weight: bold; font-size: 13px; border-bottom: 1px solid #30363d;">
+        🗺️ UBICACIÓN EN TIEMPO REAL - AMITI GPS
+    </div>
+    <div id="map" style="width: 100%; height: 280px;"></div>
 </div>
 
-<!-- EL TRUCO: REPRODUCTOR INVISIBLE DE AMITI -->
+<!-- REPRODUCTOR INVISIBLE DE AMITI -->
 <audio id="amiti-reproductor" style="display: none;"></audio>
 
 <script>
+    // Variable global para controlar la instancia del mapa
+    let mapaAmiti = null;
+    let marcadorUsuario = null;
+
     // 1. Temporizador de inteligencia activo
     const startTime = new Date();
     setInterval(() => {
@@ -50,7 +57,6 @@ function diagnosticoVoz() {
 
     // 2. Módulo de voz por servidor (Streaming directo)
     function hablarTextoConNucleo(texto, datosIdentidad) {
-        // Limpieza total de emojis y caracteres markdown que rompen el lector
         let textoPlano = texto
             .replace(/\[.*?\]/g, '')
             .replace(/[*_~`\\]/g, '')
@@ -60,40 +66,125 @@ function diagnosticoVoz() {
 
         if (!textoPlano) return;
 
-        // Codificamos el texto para la petición web
         let textoCodificado = encodeURIComponent(textoPlano);
-        
-        // Usamos el sintetizador web de Google Translate como pasarela de audio en español ('es')
         let urlAudio = `https://translate.google.com/translate_tts?ie=UTF-8&q=${textoCodificado}&tl=es&client=tw-ob`;
 
-        // Llamamos al reproductor que ya desbloqueamos en el HTML
         let reproductor = document.getElementById("amiti-reproductor");
-        reproductor.src = urlAudio;
-        
-        reproductor.play().catch(error => {
-            console.log("Reproducción de audio bloqueada por el navegador:", error);
-        });
+        if (reproductor) {
+            reproductor.src = urlAudio;
+            reproductor.play().catch(error => {
+                console.log("Reproducción de audio bloqueada por el navegador:", error);
+            });
+        }
     }
 
-    // Forzar la carga de voces del sistema operativo móvil (Se mantiene por seguridad estructural)
+    // Forzar la carga de voces del sistema operativo móvil
     if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => {
             window.speechSynthesis.getVoices();
         };
     }
 
-    // 3. Función central con el TRUCO DE DESBLOQUEO MÓVIL EXTREMO
+    // 3. Módulo del Mapa de Ubicación GPS en Tiempo Real
+    function cargarMapaUbicacion() {
+        let contenedorMapa = document.getElementById('mapa-amiti-container');
+        if (contenedorMapa) {
+            contenedorMapa.style.display = 'block';
+        }
+
+        if (!mapaAmiti) {
+            mapaAmiti = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(mapaAmiti);
+        }
+
+        // Forzar actualización de tamaño para evitar descuadres en pantalla móvil
+        setTimeout(() => {
+            mapaAmiti.invalidateSize();
+        }, 300);
+
+        // Obtener ubicación GPS real desde el teléfono Android
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (posicion) => {
+                    const lat = posicion.coords.latitude;
+                    const lon = posicion.coords.longitude;
+
+                    // Formatear Fecha y Hora local exacta
+                    const ahora = new Date();
+                    const fechaStr = ahora.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                    const horaStr = ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    const contenidoPopup = `
+                        <div style="font-family: sans-serif; font-size: 12px; color: #111;">
+                            <b style="color: #0055ff;">📍 Ubicación del Dispositivo</b><br>
+                            <b>📅 Fecha:</b> ${fechaStr}<br>
+                            <b>⏰ Hora:</b> ${horaStr}<br>
+                            <b>🌐 Lat:</b> ${lat.toFixed(5)} | <b>Lon:</b> ${lon.toFixed(5)}
+                        </div>
+                    `;
+
+                    mapaAmiti.setView([lat, lon], 16);
+
+                    if (marcadorUsuario) {
+                        marcadorUsuario.setLatLng([lat, lon]).setPopupContent(contenidoPopup).openPopup();
+                    } else {
+                        marcadorUsuario = L.marker([lat, lon]).addTo(mapaAmiti)
+                            .bindPopup(contenidoPopup)
+                            .openPopup();
+                    }
+
+                    enviarCoordenadasAlServidor(lat, lon);
+                },
+                (error) => {
+                    console.warn("Permiso de ubicación denegado o no disponible:", error.message);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+    }
+
+    // Envío de coordenadas al backend en Python (app.py)
+    function enviarCoordenadasAlServidor(latitud, longitud) {
+        fetch('/guardar_ubicacion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: latitud, lon: longitud })
+        })
+        .then(res => res.json())
+        .then(data => console.log("Telemetría de ubicación sincronizada:", data))
+        .catch(err => console.error("Error al enviar ubicación al núcleo:", err));
+    }
+
+    // Validación de los 3 Comandos de Activación del Mapa
+    function evaluarComandoUbicacion(comando) {
+        let cmd = comando.toLowerCase().trim();
+        return cmd.includes("muéstrame el mapa") || cmd.includes("muestrame el mapa") ||
+               cmd.includes("en donde estoy") || cmd.includes("en dónde estoy") ||
+               cmd.includes("mi ubicación en tiempo real") || cmd.includes("mi ubicacion en tiempo real");
+    }
+
+    // 4. Función central con TRUCO MÓVIL y Filtro de Ubicación
     function enviarComandoAmiti(textoComando) {
         if (!textoComando.trim()) return;
 
+        // Si el usuario envía alguno de los 3 comandos de ubicación, activa el mapa GPS
+        if (evaluarComandoUbicacion(textoComando)) {
+            cargarMapaUbicacion();
+        }
+
         // --- TRUCO CRÍTICO PARA MÓVILES (Desbloqueo Asíncrono) ---
-        // Desbloqueo del sintetizador nativo (por si acaso)
         if ('speechSynthesis' in window) {
             let dummy = new SpeechSynthesisUtterance("");
             window.speechSynthesis.speak(dummy);
         }
         
-        // Desbloqueo del reproductor de audio HTML usando un audio en blanco ultracorto
         let reproductor = document.getElementById("amiti-reproductor");
         if (reproductor) {
             reproductor.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"; 
@@ -107,20 +198,17 @@ function diagnosticoVoz() {
         })
         .then(res => res.json())
         .then(data => {
-            // Mostrar texto en la interfaz visual
             if (typeof imprimirEnTerminal === 'function') {
                 imprimirEnTerminal(data.respuesta);
             }
             
-            // Actualizar telemetría de progreso del núcleo
             if (typeof actualizarCirculoProgreso === 'function') {
                 actualizarCirculoProgreso(data.progreso);
             }
             
-            // Amiti habla de inmediato usando el reproductor ya autorizado
             hablarTextoConNucleo(data.respuesta, data.identidad);
         })
         .catch(err => console.error("Error en enlace con el núcleo:", err));
     }
-</script>
+            </script>
 
