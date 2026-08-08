@@ -10,6 +10,8 @@ import ast
 import requests
 import importlib
 import sys
+import socket
+import threading
 
 # =========================================================================
 #  IMPORTACIÓN DEL MÓDULO DE SEGURIDAD Y DINÁMICOS
@@ -48,6 +50,51 @@ try:
 except ImportError:
     HAS_PSYCOPG2 = False
 
+# =========================================================================
+# INYECCIÓN: CONTROLADOR DRON S15 MAX
+# =========================================================================
+class AmitiDroneController:
+    def __init__(self, ip_dron="192.168.1.1", puerto_control=8080):
+        self.ip = ip_dron
+        self.puerto = puerto_control
+        self.en_vuelo = False
+        self.conectado = False
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        threading.Thread(target=self._monitor_conexion, daemon=True).start()
+
+    def _monitor_conexion(self):
+        while True:
+            try:
+                test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                test_socket.settimeout(0.4)
+                test_socket.sendto(bytes([0x66, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x99]), (self.ip, self.puerto))
+                self.conectado = True
+            except: self.conectado = False
+            time.sleep(2.0)
+
+    def _enviar(self, pitch=128, roll=128, yaw=128, throttle=128, aux=0x01):
+        checksum = (pitch + roll + yaw + throttle + aux) & 0xFF
+        try: self.sock.sendto(bytes([0x66, pitch, roll, yaw, throttle, aux, checksum, 0x99]), (self.ip, self.puerto))
+        except: pass
+
+    def procesar_comando_texto(self, texto):
+        t = texto.lower()
+        if not self.conectado: return None
+        if "eleva el dron" in t: 
+            self.en_vuelo = True
+            self._enviar(throttle=175)
+            return "🚁 Dron S15 Max: Comando de elevación enviado."
+        if "aterriza el dron" in t:
+            self.en_vuelo = False
+            self._enviar(throttle=100)
+            return "🛬 Dron S15 Max: Comando de aterrizaje enviado."
+        if "escanea" in t: return "🔄 Dron: Escaneando área..."
+        if "graba" in t: return "📸 Dron: Acción de cámara iniciada."
+        return None
+
+# =========================================================================
+# NÚCLEO PRINCIPAL DE PROJECT AMITI OS
+# =========================================================================
 class AmitiOS:
     """
     =======================================================================
@@ -74,6 +121,9 @@ class AmitiOS:
         
         self.historial_actualizaciones = []
         self.modulos_dinamicos_detectados = {}
+        
+        # INYECCIÓN: Inicialización Dron
+        self.dron = AmitiDroneController()
         
         self._inicializar_base_datos()
         self._cargar_historial_actualizaciones()
@@ -158,10 +208,6 @@ class AmitiOS:
     #  🧠 AUTO-DETECCIÓN E INTEGRACIÓN DE NUEVOS MÓDULOS
     # =========================================================================
     def escanear_e_integrar_nuevos_modulos(self):
-        """
-        Escanea la carpeta raíz y la carpeta 'nucleos' / 'núcleos' en busca de 
-        archivos .py nuevos, analiza su contenido sintáctico y los integra de forma dinámica.
-        """
         directorios_a_escanear = ['.']
         for nombre_dir in ['nucleos', 'núcleos']:
             if os.path.exists(nombre_dir) and os.path.isdir(nombre_dir):
@@ -176,21 +222,18 @@ class AmitiOS:
                         ruta_archivo = os.path.join(directorio, archivo)
                         nombre_modulo = archivo[:-3]
                         
-                        # Análisis sintáctico previo para verificar seguridad del código
                         with open(ruta_archivo, "r", encoding="utf-8") as f:
                             codigo_fuente = f.read()
                         
                         try:
-                            ast.parse(codigo_fuente) # Valida que no tenga errores de sintaxis
+                            ast.parse(codigo_fuente) 
                             
-                            # Importación dinámica del módulo encontrado
                             if directorio != '.':
                                 paquete_mod = directorio.replace('núcleos', 'nucleos')
                                 full_mod_name = f"{paquete_mod}.{nombre_modulo}"
                             else:
                                 full_mod_name = nombre_modulo
 
-                            # Carga o recarga el módulo y lo registra en el diccionario interno
                             mod_importado = importlib.import_module(full_mod_name)
                             importlib.reload(mod_importado)
                             self.modulos_dinamicos_detectados[nombre_modulo] = mod_importado
@@ -251,7 +294,6 @@ class AmitiOS:
     #  MÉTODO PUENTE REQUERIDO POR APP.PY
     # =========================================================================
     def procesar(self, comando):
-        """Método puente que redirige al clasificador y respondedor principal."""
         return self.responder(comando)
 
     # =========================================================================
@@ -260,6 +302,11 @@ class AmitiOS:
     def responder(self, mensaje):
         if not mensaje or str(mensaje).strip() == "":
             return "🤖 **[SISTEMA]** Esperando comandos..."
+
+        # INYECCIÓN DE PRIORIDAD: Chequeo de Dron antes de cualquier otra lógica
+        resp_dron = self.dron.procesar_comando_texto(mensaje)
+        if resp_dron:
+            return resp_dron
 
         # 1. EVALUACIÓN DE PSIQUE (EMOCIONES / ORIENTACIÓN)
         if HAS_DYNAMIC_MODULES:
@@ -272,19 +319,16 @@ class AmitiOS:
                 if respuesta_psique:
                     return respuesta_psique
 
-        # EVALUACIÓN DE DIÁLOGO NATURAL (Módulo amiti_dialogo)
         if HAS_DYNAMIC_MODULES and 'amiti_dialogo' in self.modulos_dinamicos_detectados:
             resp_dialogo = self.modulos_dinamicos_detectados['amiti_dialogo'].modulo_dialogo.evaluar_dialogo(mensaje)
             if resp_dialogo:
                 return resp_dialogo
 
-        # EVALUACIÓN DE CLIMA Y TIEMPO (Módulo amiti_clima_tiempo)
         if HAS_DYNAMIC_MODULES and 'amiti_clima_tiempo' in self.modulos_dinamicos_detectados:
             resp_clima = self.modulos_dinamicos_detectados['amiti_clima_tiempo'].modulo_clima.evaluar_comando(mensaje)
             if resp_clima:
                 return resp_clima
 
-        # EVALUACIÓN DE INVESTIGACIÓN (Módulo amiti_investigacion)
         if HAS_DYNAMIC_MODULES and 'amiti_investigacion' in self.modulos_dinamicos_detectados:
             resp_investigacion = self.modulos_dinamicos_detectados['amiti_investigacion'].modulo_investigacion.evaluar_comando(mensaje)
             if resp_investigacion:
@@ -366,4 +410,4 @@ class AmitiOS:
         )
 
 amiti_os = AmitiOS()
-                
+            
