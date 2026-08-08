@@ -24,7 +24,8 @@ telemetria_sistema = {
     "comandos_procesados": 0,
     "carga_nucleo_simulada": "0%",
     "alertas_bloqueadas": 0,
-    "optimizacion_memoria": "Estable"
+    "optimizacion_memoria": "Estable",
+    "status_dron": "Esperando enlace..." # <-- INYECCIÓN: Estado inicial del Dron
 }
 
 # 🧠 INTENTO DE IMPORTACIÓN PROTEGIDA Y RADIOGRAFÍA DEL NÚCLEO
@@ -97,6 +98,18 @@ def bucle_automatizacion_amiti():
                 telemetria_sistema["carga_nucleo_simulada"] = "100% Autónomo"
             else:
                 telemetria_sistema["carga_nucleo_simulada"] = f"Escaneando Nodos ({progreso_actual}%)"
+            
+            # --- INYECCIÓN: ACTUALIZACIÓN TELEMETRÍA DRON ---
+            try:
+                if hasattr(amiti_system, 'dron'):
+                    estado_vuelo = "🚁 EN VUELO" if amiti_system.dron.en_vuelo else "🛬 TIERRA"
+                    conexion = "Señal Activa" if amiti_system.dron.conectado else "Buscando IP..."
+                    telemetria_sistema["status_dron"] = f"{conexion} | {estado_vuelo}"
+                else:
+                    telemetria_sistema["status_dron"] = "Módulo no inicializado"
+            except:
+                pass
+            # ------------------------------------------------
                 
             time.sleep(15)  # Se ejecuta automáticamente cada 15 segundos
         except Exception as e_thread:
@@ -109,7 +122,6 @@ hilo_mantenimiento.start()
 
 
 app = Flask(__name__)
-
 def mostrar_pantalla_diagnostico():
     html_error = f"""
     <!DOCTYPE html>
@@ -180,6 +192,10 @@ def index():
                     <div>Auto-Mantenimiento: <span id="val-mantenimiento" class="stat-val">--:--:--</span></div>
                     <div>Comandos Auditados: <span id="val-cmds" class="stat-val">0</span></div>
                     <div>Carga del Núcleo: <span id="val-carga" class="stat-val">0%</span></div>
+                    <!-- INYECCIÓN: GUI del Dron -->
+                    <div style="grid-column: span 2; border-top: 1px dashed #004444; padding-top: 5px; margin-top: 2px;">
+                        Estado Dron S15: <span id="val-dron" class="stat-val" style="color: #ff99ff;">--</span>
+                    </div>
                 </div>
             </div>
 
@@ -242,8 +258,7 @@ def index():
                     if (respuestaTexto === "BLOQUEO" || respuestaTexto === "BLOQUEADO") {
                         respuestaTexto = "🔒 SISTEMA RESTRINGIDO. Ingresa la llave maestra para interactuar con los motores.";
                         bloqueado = true;
-                    }
-
+    }
                     // Formatear bloques de código automáticamente si el núcleo devuelve un script contable
                     if (respuestaTexto.includes("```python")) {
                         respuestaTexto = respuestaTexto.replace(/```python([\s\S]*?)```/g, '<div class="code-block">$1</div>');
@@ -272,7 +287,10 @@ def index():
 
             function prepararPantallaParaCalculo(msg) {
                 let m = msg.toLowerCase();
-                if (m.includes("+") || m.includes("-") || m.includes("*") || m.includes("/") || m.includes("raiz") || m.includes("raíz")) {
+                // INYECCIÓN: Estado visual del dron en el Frontend
+                if (m.includes("eleva el dron") || m.includes("aterriza") || m.includes("dron")) {
+                    document.getElementById('estado-aprendizaje').innerText = "📡 Transmitiendo protocolo de vuelo a Dron S15 Max...";
+                } else if (m.includes("+") || m.includes("-") || m.includes("*") || m.includes("/") || m.includes("raiz") || m.includes("raíz")) {
                     document.getElementById('estado-aprendizaje').innerText = "⚙️ Procesando en Motor de Cálculo Matemático...";
                 } else if (m.includes("contable") || m.includes("monetaria")) {
                     document.getElementById('estado-aprendizaje').innerText = "📊 Compilando algoritmo financiero en Neo DB...";
@@ -291,6 +309,10 @@ def index():
                     document.getElementById('val-mantenimiento').innerText = data.ultimo_auto_mantenimiento;
                     document.getElementById('val-cmds').innerText = data.comandos_procesados;
                     document.getElementById('val-carga').innerText = data.carga_nucleo_simulada;
+                    // INYECCIÓN: Refresco de texto UI Dron
+                    if(document.getElementById('val-dron') && data.status_dron) {
+                        document.getElementById('val-dron').innerText = data.status_dron;
+                    }
                     
                     if (!bloqueado) {
                         document.getElementById('estado-aprendizaje').innerText = "Sistemas: Autónomo con persistencia Neon DB";
@@ -332,7 +354,9 @@ def obtener_telemetria():
         "ultimo_auto_mantenimiento": telemetria_sistema["ultimo_auto_mantenimiento"],
         "comandos_procesados": telemetria_sistema["comandos_procesados"],
         "carga_nucleo_simulada": telemetria_sistema["carga_nucleo_simulada"],
-        "optimizacion": telemetria_sistema["optimizacion_memoria"]
+        "optimizacion": telemetria_sistema["optimizacion_memoria"],
+        # INYECCIÓN: Exposición del estado del dron vía API JSON
+        "status_dron": telemetria_sistema.get("status_dron", "Inactivo")
     }
     return jsonify(response_data)
 
@@ -390,4 +414,3 @@ def chat():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-    
