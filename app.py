@@ -62,51 +62,75 @@ except Exception as e:
     class FallbackAmitiOS:
         def obtener_progreso(self): return 47
         def validar_creador(self, llave): return True
-        def procesar(self, cmd): return "SISTEMA ACTIVO EN MODO DIAGNÓSTICO."
+        def procesar(self, cmd, ip_cliente="127.0.0.1", user_agent="App"): 
+            return "SISTEMA ACTIVO EN MODO DIAGNÓSTICO."
             
     amiti_system = FallbackAmitiOS()
 
-# 🔌 INTEGRACIÓN DEL MOTOR DRON S15 MAX Y COMUNICACIÓN UDP
+# 🔌 INTEGRACIÓN DEL MOTOR DRON S15 MAX Y COMUNICACIÓN UDP (MOTOR UNIVERSAL HEXADECIMAL)
 try:
     from amiti_drone import AmitiDroneEngine
     drone_engine = AmitiDroneEngine()
 except Exception:
-    class FallbackDrone:
+    class AmitiUniversalDroneWrapper:
+        """
+        Calculadora Hexadecimal Autónoma: Genera tramas de vuelo universales calculando el checksum
+        según el movimiento. Reemplaza los códigos quemados.
+        """
         def __init__(self): 
             self.altura_actual = 0.0
             self.en_vuelo = False
             self.camara_activa = "frontal"
+            self.registro_hex = {"header": 0x66, "footer": 0x99}
+
+        def compilar_y_enviar(self, pitch=128, roll=128, yaw=128, throttle=128, aux=0x00):
+            checksum = (pitch + roll + yaw + throttle + aux) & 0xFF
+            trama = [self.registro_hex["header"], pitch, roll, yaw, throttle, aux, checksum, self.registro_hex["footer"]]
+            hex_str = bytes(trama).hex()
+            enviar_comando_udp(hex_str)
+            return hex_str
             
         def encender_y_elevar(self, a=1.65): 
-            enviar_comando_udp("6601020000")
+            # Throttle a 175 para elevación
+            trama_hex = self.compilar_y_enviar(throttle=175)
             self.en_vuelo = True
             self.altura_actual = a
-            return f"🚁 **[AMITI DRONE]** Comando UDP enviado. Motores encendidos. Elevando a **{a}m** de altura."
+            return f"🚁 **[AMITI DRONE UNIVERSAL]** Motores encendidos. Trama Hex: `{trama_hex}`. Elevando a **{a}m**."
             
         def aterrizar(self):
-            enviar_comando_udp("6601030000")
+            # Throttle a 100 para descender
+            trama_hex = self.compilar_y_enviar(throttle=100)
             self.en_vuelo = False
             self.altura_actual = 0.0
-            return "🚁 **[AMITI DRONE]** Comando UDP de aterrizaje enviado. Descendiendo a tierra."
+            return f"🚁 **[AMITI DRONE UNIVERSAL]** Comando de aterrizaje enviado. Trama Hex: `{trama_hex}`. Descendiendo."
             
         def elevar_mas(self, a=1.85): 
+            trama_hex = self.compilar_y_enviar(throttle=190)
             self.altura_actual = a
-            return f"🚁 **[AMITI DRONE]** Ascendiendo a **{a}m** de altura."
+            return f"🚁 **[AMITI DRONE UNIVERSAL]** Ascendiendo a **{a}m**. Trama Hex: `{trama_hex}`."
             
         def mover_adelante(self): 
-            return f"🚁 **[AMITI DRONE]** Avanzando hacia **adelante** a {self.altura_actual}m."
+            # Pitch a 175 para avanzar
+            trama_hex = self.compilar_y_enviar(pitch=175)
+            return f"🚁 **[AMITI DRONE UNIVERSAL]** Avanzando hacia **adelante** a {self.altura_actual}m. Hex: `{trama_hex}`."
             
         def mover_retroceder(self): 
-            return f"🚁 **[AMITI DRONE]** Retrocediendo a {self.altura_actual}m."
+            # Pitch a 100 para retroceder
+            trama_hex = self.compilar_y_enviar(pitch=100)
+            return f"🚁 **[AMITI DRONE UNIVERSAL]** Retrocediendo a {self.altura_actual}m. Hex: `{trama_hex}`."
             
         def mover_lateral(self, d): 
-            return f"🚁 **[AMITI DRONE]** Moviendo hacia la **{d.upper()}** a {self.altura_actual}m."
+            if d.lower() == "derecho" or d.lower() == "derecha":
+                trama_hex = self.compilar_y_enviar(roll=175)
+            else:
+                trama_hex = self.compilar_y_enviar(roll=100)
+            return f"🚁 **[AMITI DRONE UNIVERSAL]** Moviendo hacia la **{d.upper()}** a {self.altura_actual}m. Hex: `{trama_hex}`."
             
         def alternar_camara(self): 
             self.camara_activa = "inferior" if self.camara_activa == "frontal" else "frontal"
-            return f"📹 Cámara conmutada a: {self.camara_activa}"
+            return f"📹 **[SISTEMA DE VISIÓN DRONE]** Cámara conmutada a: {self.camara_activa}"
             
-    drone_engine = FallbackDrone()
+    drone_engine = AmitiUniversalDroneWrapper()
 
 # 🔌 INTEGRACIÓN MOTOR DE EXTENSIÓN Y BIBLIOTECA
 try:
@@ -345,7 +369,7 @@ def index():
                         }, 100);
                     }
                 }, 300);
-            }
+         }
 
             div.innerHTML = contenidoHTML;
             chatBox.appendChild(div);
@@ -410,6 +434,10 @@ def chat():
     texto_usuario = data.get("texto", "").strip()
     texto_lower = texto_usuario.lower()
     telemetria_sistema["comandos_procesados"] += 1
+    
+    # 🛡️ CAPTURA DE IP Y USER-AGENT PARA EL ESCUDO DE SEGURIDAD
+    ip_cliente = request.headers.get("X-Forwarded-For", request.remote_addr).split(',')[0].strip()
+    user_agent = request.headers.get("User-Agent", "Unknown")
 
     try:
         # 🚁 1. CONTROLADORES NLP DIRECTOS PARA LOS COMANDOS DEL DRON
@@ -433,8 +461,8 @@ def chat():
         # COMANDO 4: Retroceder
         elif "retrocede" in texto_lower or "atras" in texto_lower or "retroceder" in texto_lower:
             respuesta = drone_engine.mover_retroceder()
-
-        # COMANDO 5: Mover a la derecha o izquierda
+            
+    # COMANDO 5: Mover a la derecha o izquierda
         elif "derecho" in texto_lower or "derecha" in texto_lower:
             respuesta = drone_engine.mover_lateral("derecho")
         elif "izquierdo" in texto_lower or "izquierda" in texto_lower:
@@ -456,12 +484,12 @@ def chat():
         elif biblioteca_engine and any(kw in texto_lower for kw in ["búscame", "buscame", "consulta", "biblioteca", "información"]):
             respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
 
-        # ⚙️ PROCESAMIENTO GENERAL
+        # ⚙️ PROCESAMIENTO GENERAL (INTERCEPTADO POR EL ESCUDO)
         else:
-            respuesta = amiti_system.procesar(texto_usuario)
+            respuesta = amiti_system.procesar(texto_usuario, ip_cliente=ip_cliente, user_agent=user_agent)
 
     except Exception as e:
-        respuesta = f"⚠️ **ERROR DE NÚCLEO DRON:** {str(e)}"
+        respuesta = f"⚠️ **ERROR DE NÚCLEO:** {str(e)}"
 
     return jsonify({"respuesta": respuesta})
 
@@ -471,8 +499,14 @@ def enviar():
     comando = request.form.get('comando', '').strip()
     telemetria_sistema["comandos_procesados"] += 1
     
-    try: respuesta_cruda = amiti_system.procesar(comando)
-    except Exception as e: respuesta_cruda = f"⚠️ Error: {str(e)}"
+    # 🛡️ CAPTURA DE IP Y USER-AGENT PARA EL ESCUDO DE SEGURIDAD
+    ip_cliente = request.headers.get("X-Forwarded-For", request.remote_addr).split(',')[0].strip()
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    
+    try: 
+        respuesta_cruda = amiti_system.procesar(comando, ip_cliente=ip_cliente, user_agent=user_agent)
+    except Exception as e: 
+        respuesta_cruda = f"⚠️ Error: {str(e)}"
 
     return jsonify({
         "respuesta": respuesta_cruda,
