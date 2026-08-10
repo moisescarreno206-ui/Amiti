@@ -51,15 +51,22 @@ except ImportError:
     HAS_PSYCOPG2 = False
 
 # =========================================================================
-# INYECCIÓN: CONTROLADOR DRON S15 MAX
+# INYECCIÓN: MOTOR UNIVERSAL DE VUELO (COMPILADOR HEXADECIMAL)
 # =========================================================================
-class AmitiDroneController:
-    def __init__(self, ip_dron="192.168.1.1", puerto_control=8080):
-        self.ip = ip_dron
+class AmitiUniversalDroneEngine:
+    def __init__(self, ip_hardware="192.168.1.1", puerto_control=8080):
+        self.ip = ip_hardware
         self.puerto = puerto_control
         self.en_vuelo = False
         self.conectado = False
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+        # Registro universal de cabeceras para tramas de red
+        self.registro_hex = {
+            "handshake": [0x66, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x99],
+            "header": 0x66,
+            "footer": 0x99
+        }
         threading.Thread(target=self._monitor_conexion, daemon=True).start()
 
     def _monitor_conexion(self):
@@ -67,29 +74,47 @@ class AmitiDroneController:
             try:
                 test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 test_socket.settimeout(0.4)
-                test_socket.sendto(bytes([0x66, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x99]), (self.ip, self.puerto))
+                test_socket.sendto(bytes(self.registro_hex["handshake"]), (self.ip, self.puerto))
                 self.conectado = True
-            except: self.conectado = False
+            except: 
+                self.conectado = False
             time.sleep(2.0)
 
-    def _enviar(self, pitch=128, roll=128, yaw=128, throttle=128, aux=0x01):
+    def compilar_y_enviar_hex(self, pitch=128, roll=128, yaw=128, throttle=128, aux=0x01):
+        """Amiti compila de forma autónoma la matriz hexadecimal calculando el checksum universal"""
         checksum = (pitch + roll + yaw + throttle + aux) & 0xFF
-        try: self.sock.sendto(bytes([0x66, pitch, roll, yaw, throttle, aux, checksum, 0x99]), (self.ip, self.puerto))
-        except: pass
+        trama_calculada = [
+            self.registro_hex["header"], 
+            pitch, roll, yaw, throttle, aux, 
+            checksum, 
+            self.registro_hex["footer"]
+        ]
+        try: 
+            self.sock.sendto(bytes(trama_calculada), (self.ip, self.puerto))
+            return trama_calculada
+        except: 
+            return None
 
     def procesar_comando_texto(self, texto):
         t = texto.lower()
         if not self.conectado: return None
-        if "eleva el dron" in t: 
+        
+        if "eleva" in t or "despega" in t: 
             self.en_vuelo = True
-            self._enviar(throttle=175)
-            return "🚁 Dron S15 Max: Comando de elevación enviado."
-        if "aterriza el dron" in t:
+            trama = self.compilar_y_enviar_hex(throttle=175)
+            return f"🚁 **[MOTOR UNIVERSAL]** Protocolo de elevación. Tramas hexadecimales compiladas y transmitidas: {trama}"
+            
+        if "aterriza" in t or "baja" in t:
             self.en_vuelo = False
-            self._enviar(throttle=100)
-            return "🛬 Dron S15 Max: Comando de aterrizaje enviado."
-        if "escanea" in t: return "🔄 Dron: Escaneando área..."
-        if "graba" in t: return "📸 Dron: Acción de cámara iniciada."
+            trama = self.compilar_y_enviar_hex(throttle=100)
+            return f"🛬 **[MOTOR UNIVERSAL]** Protocolo de aterrizaje autónomo. Hex transmitido: {trama}"
+            
+        if "escanea" in t: 
+            return "🔄 **[MOTOR UNIVERSAL]** Calibrando matriz de sensores para evasión perimetral..."
+            
+        if "graba" in t or "camara" in t: 
+            return "📸 **[MOTOR UNIVERSAL]** Interfaz de hardware multimedia enlazada."
+            
         return None
 
 # =========================================================================
@@ -100,17 +125,17 @@ class AmitiOS:
     =======================================================================
     NÚCLEO PRINCIPAL DE PROJECT AMITI OS
     =======================================================================
-    Versión: 6.16.0 Sovereign Sentinel + Auto-Extensión
+    Versión: 7.1.0 Sovereign Sentinel + Orquestador Dinámico
     Mejoras:
-      - Enlace directo con modulo_seguridad, modulo_proteccion y modulo_salud
-      - Compatibilidad total con llamadas de procesamiento del app.py
-      - Auto-detección, análisis e integración dinámica de nuevos archivos en raíz/núcleos
+      - Enlace directo con módulos dinámicos
+      - Motor de compilación hexadecimal universal para drones/hardware.
+      - Auto-detección e inyección del Escudo de Seguridad Avanzado.
     =======================================================================
     """
 
     def __init__(self):
         self.nombre = "Project Amiti OS"
-        self.version = "6.16.0 Sovereign Sentinel"
+        self.version = "7.1.0 Sovereign Sentinel"
         self.arranque_timestamp = datetime.datetime.now().isoformat()
         self.sesion_id = str(uuid.uuid4())
         
@@ -122,8 +147,11 @@ class AmitiOS:
         self.historial_actualizaciones = []
         self.modulos_dinamicos_detectados = {}
         
-        # INYECCIÓN: Inicialización Dron
-        self.dron = AmitiDroneController()
+        # 🛡️ Orquestador de Seguridad Dinámico
+        self.escudo_seguridad = None
+        
+        # INYECCIÓN: Motor de Vuelo Universal
+        self.dron = AmitiUniversalDroneEngine()
         
         self._inicializar_base_datos()
         self._cargar_historial_actualizaciones()
@@ -224,7 +252,6 @@ class AmitiOS:
                         
                         with open(ruta_archivo, "r", encoding="utf-8") as f:
                             codigo_fuente = f.read()
-                        
                         try:
                             ast.parse(codigo_fuente) 
                             
@@ -239,6 +266,12 @@ class AmitiOS:
                             self.modulos_dinamicos_detectados[nombre_modulo] = mod_importado
                             modulos_integrados += 1
                             print(f"[AUTO-INTEGRACIÓN] Módulo '{nombre_modulo}' analizado e integrado con éxito.")
+                            
+                            # 🛡️ INYECCIÓN DINÁMICA DEL ESCUDO DE SEGURIDAD
+                            if hasattr(mod_importado, 'AmitiAdvancedSecurityShield'):
+                                self.escudo_seguridad = mod_importado.AmitiAdvancedSecurityShield()
+                                print(f"🛡️ [AMITI CORE] Escudo de Seguridad Avanzado detectado y orquestado.")
+
                         except SyntaxError as se:
                             print(f"[AUTO-INTEGRACIÓN ERROR] Error de sintaxis en {archivo}: {se}")
                         except Exception as ex:
@@ -291,9 +324,21 @@ class AmitiOS:
         return "INTERACCION_GENERAL", escala
 
     # =========================================================================
-    #  MÉTODO PUENTE REQUERIDO POR APP.PY
+    #  MÉTODO PUENTE REQUERIDO POR APP.PY (CON ESCUDO INTERCEPTOR IP)
     # =========================================================================
-    def procesar(self, comando):
+    def procesar(self, comando, ip_cliente="127.0.0.1", user_agent="Internal-App"):
+        # 1. ORQUESTACIÓN DE SEGURIDAD EN TIEMPO REAL
+        if self.escudo_seguridad:
+            autorizado, mensaje_ip = self.escudo_seguridad.auditar_conexion_entrante(ip_cliente, user_agent)
+            if not autorizado:
+                return mensaje_ip 
+            
+            limpio, mensaje_filtro = self.escudo_seguridad.blind_scan_mensaje(comando)
+            if not limpio:
+                self.escudo_seguridad.registrar_incidente_hostil(ip_cliente, "Filtro ciego detectó violación")
+                return mensaje_filtro 
+
+        # 2. Si pasa el escudo, Amiti responde
         return self.responder(comando)
 
     # =========================================================================
@@ -410,4 +455,3 @@ class AmitiOS:
         )
 
 amiti_os = AmitiOS()
-            
