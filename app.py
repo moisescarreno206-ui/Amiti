@@ -4,6 +4,7 @@ import time
 import traceback
 import threading
 import random
+import socket
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string
 
@@ -11,6 +12,20 @@ from flask import Flask, request, jsonify, render_template_string
 ruta_proyecto = os.path.dirname(os.path.abspath(__file__))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
+
+# 🌐 CONFIGURACIÓN DE RED LOCAL DRON (MODO OFFLINE)
+DRONE_IP = "192.168.169.1"
+DRONE_PORT = 8888
+
+def enviar_comando_udp(hex_code):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.sendto(bytes.fromhex(hex_code), (DRONE_IP, DRONE_PORT))
+        sock.close()
+        return True
+    except Exception as e:
+        print(f"Error de transmisión UDP: {e}")
+        return False
 
 # 📊 VARIABLES DE ESTADO GLOBAL Y AUTOMATIZACIÓN DE AMITI OS
 sistema_activo = False
@@ -51,19 +66,46 @@ except Exception as e:
             
     amiti_system = FallbackAmitiOS()
 
-# 🔌 INTEGRACIÓN DEL MOTOR DRON S15 MAX
+# 🔌 INTEGRACIÓN DEL MOTOR DRON S15 MAX Y COMUNICACIÓN UDP
 try:
     from amiti_drone import AmitiDroneEngine
     drone_engine = AmitiDroneEngine()
 except Exception:
     class FallbackDrone:
-        def __init__(self): self.altura_actual = 0.0; self.en_vuelo = False; self.camara_activa = "frontal"
-        def encender_y_elevar(self, a=1.65): self.en_vuelo = True; self.altura_actual = a; return f"🚁 **[AMITI DRONE S15 MAX]** Motores encendidos. Elevar a **{a}m** de altura."
-        def elevar_mas(self, a=1.85): self.altura_actual = a; return f"🚁 **[AMITI DRONE S15 MAX]** Ascendiendo a **{a}m** de altura."
-        def mover_adelante(self): return f"🚁 **[AMITI DRONE S15 MAX]** Avanzando hacia **adelante** a {self.altura_actual}m."
-        def mover_retroceder(self): return f"🚁 **[AMITI DRONE S15 MAX]** Retrocediendo a {self.altura_actual}m."
-        def mover_lateral(self, d): return f"🚁 **[AMITI DRONE S15 MAX]** Moviendo hacia la **{d.upper()}** a {self.altura_actual}m."
-        def alternar_camara(self): self.camara_activa = "inferior" if self.camara_activa == "frontal" else "frontal"; return f"📹 Cámara conmutada a: {self.camara_activa}"
+        def __init__(self): 
+            self.altura_actual = 0.0
+            self.en_vuelo = False
+            self.camara_activa = "frontal"
+            
+        def encender_y_elevar(self, a=1.65): 
+            enviar_comando_udp("6601020000")
+            self.en_vuelo = True
+            self.altura_actual = a
+            return f"🚁 **[AMITI DRONE]** Comando UDP enviado. Motores encendidos. Elevando a **{a}m** de altura."
+            
+        def aterrizar(self):
+            enviar_comando_udp("6601030000")
+            self.en_vuelo = False
+            self.altura_actual = 0.0
+            return "🚁 **[AMITI DRONE]** Comando UDP de aterrizaje enviado. Descendiendo a tierra."
+            
+        def elevar_mas(self, a=1.85): 
+            self.altura_actual = a
+            return f"🚁 **[AMITI DRONE]** Ascendiendo a **{a}m** de altura."
+            
+        def mover_adelante(self): 
+            return f"🚁 **[AMITI DRONE]** Avanzando hacia **adelante** a {self.altura_actual}m."
+            
+        def mover_retroceder(self): 
+            return f"🚁 **[AMITI DRONE]** Retrocediendo a {self.altura_actual}m."
+            
+        def mover_lateral(self, d): 
+            return f"🚁 **[AMITI DRONE]** Moviendo hacia la **{d.upper()}** a {self.altura_actual}m."
+            
+        def alternar_camara(self): 
+            self.camara_activa = "inferior" if self.camara_activa == "frontal" else "frontal"
+            return f"📹 Cámara conmutada a: {self.camara_activa}"
+            
     drone_engine = FallbackDrone()
 
 # 🔌 INTEGRACIÓN MOTOR DE EXTENSIÓN Y BIBLIOTECA
@@ -273,11 +315,11 @@ def index():
                 }, 800);
             }
 
-            // 🚁 INTERCEPTOR DE CÁMARA Y HUD DRON S15 MAX
-            if (emisor === 'amiti' && (texto.includes("DRONE S15 MAX") || texto.includes("SISTEMA DE VISIÓN"))) {
+            // 🚁 INTERCEPTOR DE CÁMARA Y HUD DRON
+            if (emisor === 'amiti' && (texto.includes("DRONE") || texto.includes("SISTEMA DE VISIÓN"))) {
                 const hudId = 'hud-' + Date.now();
                 contenidoHTML += `<br><div class="drone-hud" id="${hudId}">
-                    <div class="drone-cam-overlay">🔴 S15 MAX CAM STREAM | 4K OPTICAL LOCK</div>
+                    <div class="drone-cam-overlay">🔴 DRONE CAM STREAM | OPTICAL LOCK</div>
                     <div class="crosshair"></div>
                     <canvas id="canvas-${hudId}" width="400" height="200" style="width:100%; height:100%;"></canvas>
                 </div>`;
@@ -312,8 +354,8 @@ def index():
 
         function prepararPantallaParaCalculo(msg) {
             let m = msg.toLowerCase();
-            if (m.includes("dron") || m.includes("elevar") || m.includes("avanca") || m.includes("retrocede")) {
-                document.getElementById('estado-aprendizaje').innerText = "🚁 Transmitiendo paquete de telemetría a Dron S15 MAX...";
+            if (m.includes("dron") || m.includes("elevar") || m.includes("avanca") || m.includes("retrocede") || m.includes("aterriza")) {
+                document.getElementById('estado-aprendizaje').innerText = "🚁 Transmitiendo paquete UDP de telemetría...";
             }
         }
 
@@ -370,7 +412,7 @@ def chat():
     telemetria_sistema["comandos_procesados"] += 1
 
     try:
-        # 🚁 1. CONTROLADORES NLP DIRECTOS PARA LOS 5 COMANDOS DEL DRON S15 MAX
+        # 🚁 1. CONTROLADORES NLP DIRECTOS PARA LOS COMANDOS DEL DRON
         
         # COMANDO 1: Elevación básica (1.65m)
         if "elevar el dron" in texto_lower or "eleva el dron" in texto_lower:
@@ -379,6 +421,10 @@ def chat():
         # COMANDO 2: Elevar más alto (1.85m)
         elif "eleva el un poco más alto dron" in texto_lower or "más alto dron" in texto_lower or "mas alto" in texto_lower:
             respuesta = drone_engine.elevar_mas(1.85)
+            
+        # COMANDO NUEVO: Aterrizar
+        elif "aterriza" in texto_lower or "bajar dron" in texto_lower or "detener vuelo" in texto_lower:
+            respuesta = drone_engine.aterrizar()
 
         # COMANDO 3: Avanzar hacia adelante
         elif "avanca el dron" in texto_lower or "avanza el dron" in texto_lower or "para de lante" in texto_lower or "adelante" in texto_lower:
