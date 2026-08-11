@@ -6,12 +6,16 @@ import threading
 import random
 import socket
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, send_from_directory
 
 # ⚙️ PARCHE DE RUTAS AUTOMÁTICO DE NÚCLEOS
 ruta_proyecto = os.path.dirname(os.path.abspath(__file__))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
+
+# 🛡️ CORTAFUEGOS DE SEGURIDAD AMITI
+from amiti_firewall import AmitiFirewall
+firewall = AmitiFirewall(max_requests_per_minute=80)
 
 # 🌐 CONFIGURACIÓN DE RED LOCAL DRON (MODO OFFLINE)
 DRONE_IP = "192.168.169.1"
@@ -73,10 +77,6 @@ try:
     drone_engine = AmitiDroneEngine()
 except Exception:
     class AmitiUniversalDroneWrapper:
-        """
-        Calculadora Hexadecimal Autónoma: Genera tramas de vuelo universales calculando el checksum
-        según el movimiento. Reemplaza los códigos quemados.
-        """
         def __init__(self): 
             self.altura_actual = 0.0
             self.en_vuelo = False
@@ -91,14 +91,12 @@ except Exception:
             return hex_str
             
         def encender_y_elevar(self, a=1.65): 
-            # Throttle a 175 para elevación
             trama_hex = self.compilar_y_enviar(throttle=175)
             self.en_vuelo = True
             self.altura_actual = a
             return f"🚁 **[AMITI DRONE UNIVERSAL]** Motores encendidos. Trama Hex: `{trama_hex}`. Elevando a **{a}m**."
             
         def aterrizar(self):
-            # Throttle a 100 para descender
             trama_hex = self.compilar_y_enviar(throttle=100)
             self.en_vuelo = False
             self.altura_actual = 0.0
@@ -110,17 +108,15 @@ except Exception:
             return f"🚁 **[AMITI DRONE UNIVERSAL]** Ascendiendo a **{a}m**. Trama Hex: `{trama_hex}`."
             
         def mover_adelante(self): 
-            # Pitch a 175 para avanzar
             trama_hex = self.compilar_y_enviar(pitch=175)
             return f"🚁 **[AMITI DRONE UNIVERSAL]** Avanzando hacia **adelante** a {self.altura_actual}m. Hex: `{trama_hex}`."
             
         def mover_retroceder(self): 
-            # Pitch a 100 para retroceder
             trama_hex = self.compilar_y_enviar(pitch=100)
             return f"🚁 **[AMITI DRONE UNIVERSAL]** Retrocediendo a {self.altura_actual}m. Hex: `{trama_hex}`."
             
         def mover_lateral(self, d): 
-            if d.lower() == "derecho" or d.lower() == "derecha":
+            if d.lower() in ["derecho", "derecha"]:
                 trama_hex = self.compilar_y_enviar(roll=175)
             else:
                 trama_hex = self.compilar_y_enviar(roll=100)
@@ -160,7 +156,35 @@ def bucle_automatizacion_amiti():
 hilo_mantenimiento = threading.Thread(target=bucle_automatizacion_amiti, daemon=True)
 hilo_mantenimiento.start()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
+
+# 🛡️ INTERCEPTOR GLOBAL DE SEGURIDAD (FIREWALL MIDDLEWARE)
+@app.before_request
+def filtrar_peticion():
+    if request.path.startswith("/static"):
+        return None
+    ip_cliente = request.headers.get("X-Forwarded-For", request.remote_addr).split(',')[0].strip()
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    
+    contenido_peticion = None
+    if request.is_json and request.json:
+        contenido_peticion = str(request.json)
+    elif request.form:
+        contenido_peticion = str(request.form)
+
+    permitido, motivo = firewall.auditar_peticion(ip_cliente, user_agent, contenido_peticion)
+    if not permitido:
+        telemetria_sistema["alertas_bloqueadas"] += 1
+        return jsonify({"error": "Petición bloqueada por Cortafuegos de Amiti", "motivo": motivo}), 403
+
+# 📱 RUTAS DE LA APP / PWA
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory("static", "manifest.json")
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory("static", "sw.js")
 
 def mostrar_pantalla_diagnostico():
     return render_template_string("""
@@ -183,11 +207,14 @@ def index():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PROJECT AMITI OS</title>
+    <!-- MANIFIESTO PWA PARA INSTALACIÓN DE APP -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00ffcc">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: #050505; color: #00ffcc; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 10px; }
         #layout { display: flex; flex-direction: column; width: 100%; max-width: 500px; height: 95vh; border: 2px solid #00ffcc; border-radius: 12px; padding: 15px; background-color: #070c0c; box-shadow: 0 0 20px rgba(0, 255, 204, 0.2); }
-        .header-title { text-align: center; font-size: 1.4rem; font-weight: bold; letter-spacing: 2px; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; margin-bottom: 12px; }
+        .header-title { text-align: center; font-size: 1.4rem; font-weight: bold; letter-spacing: 2px; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; margin-bottom: 8px; }
         #panel-superior { background: #021210; border: 1px solid #005544; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 0.8rem; }
         .status-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; text-align: center; margin-bottom: 8px; }
         .status-item { background: #041a17; padding: 6px; border-radius: 4px; border: 1px solid #004433; }
@@ -218,8 +245,9 @@ def index():
         input[type="text"]:focus { box-shadow: 0 0 8px rgba(0, 255, 204, 0.5); }
         button { background-color: #00ffcc; color: #000; border: none; padding: 0 20px; font-weight: bold; border-radius: 6px; cursor: pointer; font-family: inherit; transition: all 0.2s ease; }
         button:hover { background-color: #00ccff; box-shadow: 0 0 10px #00ccff; }
-        .option-row { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #00a887; }
+        .option-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem; color: #00a887; }
         .option-row input[type="checkbox"] { accent-color: #00ffcc; }
+        #btn-pwa-install { display: none; background: #00a887; color: #fff; padding: 4px 8px; border-radius: 4px; border: none; font-size: 0.7rem; cursor: pointer; }
         
         /* HUD Y CÁMARA DEL DRON */
         .drone-hud { width: 100%; height: 210px; border: 1px solid #00ffcc; border-radius: 8px; background: #001510; position: relative; overflow: hidden; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
@@ -233,7 +261,7 @@ def index():
         <div id="panel-superior">
             <div class="status-grid">
                 <div class="status-item"><span class="status-label">CORE:</span><span class="status-val">18/18 Online</span></div>
-                <div class="status-item"><span class="status-label">DEVOCIÓN:</span><span class="status-val">100% (Creador)</span></div>
+                <div class="status-item"><span class="status-label">CORTAFUEGOS:</span><span class="status-val">ACTIVO 🛡️</span></div>
                 <div class="status-item"><span class="status-label">VOZ:</span><span class="status-val">Lista 🔊</span></div>
             </div>
             <div id="panel-automatizacion">
@@ -242,7 +270,7 @@ def index():
                     <div>Base DB: <span id="val-db" class="stat-val">Conectando...</span></div>
                     <div>Auto-Mant: <span id="val-mantenimiento" class="stat-val">--:--:--</span></div>
                     <div>Estado Dron: <span id="val-dron" class="stat-val">En Tierra</span></div>
-                    <div>Carga Core: <span id="val-carga" class="stat-val">0%</span></div>
+                    <div>Alertas Bloq: <span id="val-alertas" class="stat-val">0</span></div>
                 </div>
             </div>
         </div>
@@ -250,18 +278,47 @@ def index():
             <div class="spinner"></div>
             <div id="counter">Amiti OS<br><span id="progreso-num">{{ progreso }}</span>%</div>
         </div>
-        <div id="estado-aprendizaje">Sistemas estables. Esperando instrucciones...</div>
+        <div id="estado-aprendizaje">Sistemas estables. Protección activa.</div>
         <div id="chat-box"></div>
         <div id="input-area">
-            <input type="text" id="user-input" placeholder="Escribe tu comando o control de dron..." autocomplete="off">
+            <input type="text" id="user-input" placeholder="Escribe tu comando o control..." autocomplete="off">
             <button onclick="enviarMensaje()">Enviar</button>
         </div>
         <div class="option-row">
-            <input type="checkbox" id="check-voz" checked>
-            <label for="check-voz">Activar Voz Automática de Amiti</label>
+            <div>
+                <input type="checkbox" id="check-voz" checked>
+                <label for="check-voz">Voz Automática</label>
+            </div>
+            <button id="btn-pwa-install" onclick="instalarPWA()">📲 INSTALAR APP</button>
         </div>
     </div>
     <script>
+        // REGISTRO DE SERVICE WORKER PARA MODO APP PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker Registrado'))
+                .catch(err => console.log('Error SW:', err));
+        }
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('btn-pwa-install').style.display = 'block';
+        });
+
+        function instalarPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        document.getElementById('btn-pwa-install').style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+
         function formatearTexto(texto) {
             if (!texto) return '';
             let t = texto;
@@ -291,7 +348,7 @@ def index():
                     if (data.desbloqueado) {
                         document.getElementById('user-input').placeholder = "Modo Creador Activo...";
                         document.getElementById('estado-aprendizaje').innerText = "Sistemas: Control Total Otorgado";
-                        agregarMensaje("Acceso Maestro Concedido. Todos los sub-núcleos en línea.", 'amiti');
+                        agregarMensaje("Acceso Maestro Concedido. Cortafuegos autoriza tu sesión.", 'amiti');
                     }
                     solicitarTelemetriaAutonoma();
                 });
@@ -305,14 +362,19 @@ def index():
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ texto: mensaje })
             })
-            .then(res => res.json())
+            .then(res => {
+                if (res.status === 403) {
+                    return res.json().then(d => { throw new Error(d.motivo || "Bloqueado por cortafuegos"); });
+                }
+                return res.json();
+            })
             .then(data => {
                 let respuestaTexto = data.respuesta || "⚠️ Estructura vacía en canal de datos.";
                 agregarMensaje(respuestaTexto, 'amiti');
                 solicitarTelemetriaAutonoma();
             })
             .catch(err => {
-                agregarMensaje("❌ Fallo de respuesta de red con el backend.", 'amiti');
+                agregarMensaje("🛡️ **[CORTAFUEGOS / RED]:** " + err.message, 'amiti');
             });
         }
 
@@ -323,7 +385,7 @@ def index():
             
             let contenidoHTML = (emisor === 'creador' ? "<strong>Tú:</strong> " : "<strong>Amiti:</strong> 💬 ") + formatearTexto(texto);
             
-            // 🗺️ INTERCEPTOR GPS / MAPA
+            // MAPA GPS
             if (emisor === 'amiti' && (texto.includes("Sincronizando coordenadas GPS") || texto.includes("Desplegando interfaz de mapas"))) {
                 const mapId = 'map-' + Date.now();
                 contenidoHTML += `<br><br><div id="${mapId}" style="width: 100%; height: 230px; border: 1px dashed #00ffcc; border-radius: 8px; background-color: #021210; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #00ffcc;">📡 Conectando con satélite...</div>`;
@@ -339,7 +401,7 @@ def index():
                 }, 800);
             }
 
-            // 🚁 INTERCEPTOR DE CÁMARA Y HUD DRON
+            // HUD Y VISIÓN DRON
             if (emisor === 'amiti' && (texto.includes("DRONE") || texto.includes("SISTEMA DE VISIÓN"))) {
                 const hudId = 'hud-' + Date.now();
                 contenidoHTML += `<br><div class="drone-hud" id="${hudId}">
@@ -356,7 +418,6 @@ def index():
                         setInterval(() => {
                             ctx.fillStyle = '#01120f';
                             ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            // Renderizado simulación de visión óptica
                             ctx.strokeStyle = '#00ffcc';
                             ctx.lineWidth = 1;
                             ctx.beginPath();
@@ -369,7 +430,7 @@ def index():
                         }, 100);
                     }
                 }, 300);
-         }
+            }
 
             div.innerHTML = contenidoHTML;
             chatBox.appendChild(div);
@@ -379,9 +440,9 @@ def index():
         function prepararPantallaParaCalculo(msg) {
             let m = msg.toLowerCase();
             if (m.includes("dron") || m.includes("elevar") || m.includes("avanca") || m.includes("retrocede") || m.includes("aterriza")) {
-                document.getElementById('estado-aprendizaje').innerText = "🚁 Transmitiendo paquete UDP de telemetría...";
+                document.getElementById('estado-aprendizaje').innerText = "🚁 Transmitiendo paquete UDP...";
             }
-        }
+         }
 
         function solicitarTelemetriaAutonoma() {
             fetch('/api/sistema/telemetria')
@@ -391,7 +452,7 @@ def index():
                 document.getElementById('val-db').innerText = data.status_db;
                 document.getElementById('val-mantenimiento').innerText = data.ultimo_auto_mantenimiento;
                 document.getElementById('val-dron').innerText = data.estado_dron;
-                document.getElementById('val-carga').innerText = data.carga_nucleo_simulada;
+                document.getElementById('val-alertas').innerText = data.alertas_bloqueadas;
             })
             .catch(e => console.log(e));
         }
@@ -423,7 +484,7 @@ def obtener_telemetria():
         "status_db": telemetria_sistema["status_db"],
         "ultimo_auto_mantenimiento": telemetria_sistema["ultimo_auto_mantenimiento"],
         "comandos_procesados": telemetria_sistema["comandos_procesados"],
-        "carga_nucleo_simulada": telemetria_sistema["carga_nucleo_simulada"],
+        "alertas_bloqueadas": telemetria_sistema["alertas_bloqueadas"],
         "estado_dron": telemetria_sistema["estado_dron"]
     })
 
@@ -435,56 +496,32 @@ def chat():
     texto_lower = texto_usuario.lower()
     telemetria_sistema["comandos_procesados"] += 1
     
-    # 🛡️ CAPTURA DE IP Y USER-AGENT PARA EL ESCUDO DE SEGURIDAD
     ip_cliente = request.headers.get("X-Forwarded-For", request.remote_addr).split(',')[0].strip()
     user_agent = request.headers.get("User-Agent", "Unknown")
 
     try:
-        # 🚁 1. CONTROLADORES NLP DIRECTOS PARA LOS COMANDOS DEL DRON
-        
-        # COMANDO 1: Elevación básica (1.65m)
         if "elevar el dron" in texto_lower or "eleva el dron" in texto_lower:
             respuesta = drone_engine.encender_y_elevar(1.65)
-
-        # COMANDO 2: Elevar más alto (1.85m)
         elif "eleva el un poco más alto dron" in texto_lower or "más alto dron" in texto_lower or "mas alto" in texto_lower:
             respuesta = drone_engine.elevar_mas(1.85)
-            
-        # COMANDO NUEVO: Aterrizar
         elif "aterriza" in texto_lower or "bajar dron" in texto_lower or "detener vuelo" in texto_lower:
             respuesta = drone_engine.aterrizar()
-
-        # COMANDO 3: Avanzar hacia adelante
         elif "avanca el dron" in texto_lower or "avanza el dron" in texto_lower or "para de lante" in texto_lower or "adelante" in texto_lower:
             respuesta = drone_engine.mover_adelante()
-
-        # COMANDO 4: Retroceder
         elif "retrocede" in texto_lower or "atras" in texto_lower or "retroceder" in texto_lower:
             respuesta = drone_engine.mover_retroceder()
-            
-    # COMANDO 5: Mover a la derecha o izquierda
         elif "derecho" in texto_lower or "derecha" in texto_lower:
             respuesta = drone_engine.mover_lateral("derecho")
         elif "izquierdo" in texto_lower or "izquierda" in texto_lower:
             respuesta = drone_engine.mover_lateral("izquierdo")
-
-        # CAMBIO DE CÁMARA / VISIÓN
         elif "camara" in texto_lower or "cámara" in texto_lower or "ver entorno" in texto_lower:
             respuesta = drone_engine.alternar_camara()
-
-        # 🗺️ MAPA Y GPS
         elif any(kw in texto_lower for kw in ["mapa", "donde estoy", "dónde estoy", "ubicacion", "ubicación"]):
             respuesta = "Sincronizando coordenadas GPS en tiempo real. Desplegando interfaz de mapas en pantalla, Creador."
-
-        # 🔓 LLAVE MAESTRA
         elif texto_lower == "amiti":
             respuesta = "🔓 **[SISTEMA DESBLOQUEADO]** Llave maestra aceptada. Motores listos para operar."
-
-        # 📚 BIBLIOTECA VIRTUAL
         elif biblioteca_engine and any(kw in texto_lower for kw in ["búscame", "buscame", "consulta", "biblioteca", "información"]):
             respuesta = biblioteca_engine.buscar_en_biblioteca(texto_usuario)
-
-        # ⚙️ PROCESAMIENTO GENERAL (INTERCEPTADO POR EL ESCUDO)
         else:
             respuesta = amiti_system.procesar(texto_usuario, ip_cliente=ip_cliente, user_agent=user_agent)
 
@@ -492,27 +529,6 @@ def chat():
         respuesta = f"⚠️ **ERROR DE NÚCLEO:** {str(e)}"
 
     return jsonify({"respuesta": respuesta})
-
-@app.route('/enviar', methods=['POST'])
-def enviar():
-    global telemetria_sistema
-    comando = request.form.get('comando', '').strip()
-    telemetria_sistema["comandos_procesados"] += 1
-    
-    # 🛡️ CAPTURA DE IP Y USER-AGENT PARA EL ESCUDO DE SEGURIDAD
-    ip_cliente = request.headers.get("X-Forwarded-For", request.remote_addr).split(',')[0].strip()
-    user_agent = request.headers.get("User-Agent", "Unknown")
-    
-    try: 
-        respuesta_cruda = amiti_system.procesar(comando, ip_cliente=ip_cliente, user_agent=user_agent)
-    except Exception as e: 
-        respuesta_cruda = f"⚠️ Error: {str(e)}"
-
-    return jsonify({
-        "respuesta": respuesta_cruda,
-        "progreso": min(100, 47 + telemetria_sistema["comandos_procesados"]),
-        "identidad": "AMITI OS"
-    })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
