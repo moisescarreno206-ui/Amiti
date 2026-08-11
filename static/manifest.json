@@ -1,0 +1,22 @@
+{
+  "short_name": "Amiti OS",
+  "name": "Amiti OS - Spatial Social Network",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2097/2097276.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2097/2097276.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#050505",
+  "theme_color": "#00ffcc",
+  "display": "standalone",
+  "orientation": "portrait"
+}
+
